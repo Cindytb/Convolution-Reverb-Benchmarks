@@ -3,13 +3,15 @@ if [ "$#" -ne 3 ]; then
         echo "Usage: ./test.sh [time] resultslog tempLog exportLog"
         exit 1
 fi
-
+hostName=$(hostname)
 TIME=""
+OUT=""
 if [[ $1 == "time" ]]; then
     TIME="-t"
 fi
-
-hostName=$(hostname)
+if [[ $1 == "output" || $2 == "output" ]]; then
+    OUT="-o ${hostname}.wav"
+fi
 resultsLog=$1
 tempLog=$2
 exportLog=$3
@@ -26,7 +28,7 @@ for (( j=0; j<10; j=j+1 )); do
 
         for i in ../Audio/96000/*; do
                 echo $i - CPU - FFT Convolution
-                (time bin/gpuconvolve.out $TIME -i $i -o ${hostName}.wav) >> $resultsLog 2>&1
+                (time bin/gpuconvolve.out $TIME -i $i $OUT) >> $resultsLog 2>&1
                 tail -3 $resultsLog  | grep "real" | sed -e 's/^real[ \t]*//' | sed -e 's/s//' >> $tempLog
         done
         echo  >> $tempLog

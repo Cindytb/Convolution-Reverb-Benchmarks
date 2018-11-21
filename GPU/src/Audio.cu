@@ -79,12 +79,11 @@ void readFileExperimental3(const char *iname, const char *rname,
 			*blockProcessingOn = true;
 		}
 	}
-	
 	int numDevs = 1;
 	cudaGetDeviceCount(&numDevs);
 	if(*blockProcessingOn && numDevs != 1){
 		/*Allocate host pinned memory for input and reverb*/
-		checkCudaErrors(cudaMallocHost((void**)&ibuf, (totalSize) * sizeof(float)));
+		checkCudaErrors(cudaMallocHost((void**)&ibuf, totalSize * sizeof(float)));
 		rbuf = (float*)malloc( *rframes * *rCh * sizeof(float));
 		if (r_info.channels == 1) {
 			sf_read_float(r_sndfile, rbuf, *rframes * *rCh);

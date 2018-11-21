@@ -64,11 +64,11 @@ void scaleArray(float *x, float peak_in, long long size){
 /*float *x  & *h are fftwf_real, pre-padded. Returns whichever adress contains the data*/
 float * simpleConvolve(float *x, float *h, int paddedFrames, enum flags num){
     int outPaddedSamples = num == mono_mono ? paddedFrames : (int)(paddedFrames * 2L);
-    //fprintf(stderr, "outPaddedSamples: '%i\n", outPaddedSamples);
     fftwf_complex *f_x, *f_h;
     
     int iCh = num <= 1 ? 1 : 2;
     int rCh = num == mono_stereo || num == stereo_stereo ? 2 : 1;
+    
     /*Allocate complex arrays*/
     f_x = (fftwf_complex*) fftwf_alloc_complex(iCh * (paddedFrames / 2 + 1));
     f_h = (fftwf_complex*) fftwf_alloc_complex(rCh * (paddedFrames / 2 + 1));
@@ -120,7 +120,6 @@ float * simpleConvolve(float *x, float *h, int paddedFrames, enum flags num){
         fftwf_execute_dft_c2r(left_out, f_h, x);
         fftwf_execute_dft_c2r(right_out, f_h + (paddedFrames / 2 + 1), x + 1);      
     }
-    //fprintf(stderr, "Destroying plans and freeing complex memory\n");
     fftwf_destroy_plan(interleaved_left);
     fftwf_destroy_plan(interleaved_right);
     fftwf_destroy_plan(mono_input);
