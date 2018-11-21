@@ -74,8 +74,6 @@ void readFileExperimental3(const char *iname, const char *rname,
 	/*Find padded size for FFT*/
 	
 	*new_size = pow(2, ceil(log2((double)(totalSize + *rframes * *rCh - 1))));
-	fprintf(stderr, "The block size of this GPU is %lli\n", getAudioBlockSize());
-	fprintf(stderr, "new_size                      %lli\n", *new_size);
 	if(!timeDomain){
 		if(*new_size > getAudioBlockSize()){
 			*blockProcessingOn = true;
