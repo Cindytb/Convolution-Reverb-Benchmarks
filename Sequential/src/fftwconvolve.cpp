@@ -201,8 +201,8 @@ float * convolve(float *ibuf, float *rbuf, long long iFrames, long long rFrames,
     fftwf_free(h);
     return out;
 }
-float *entry(float *ibuf, float *rbuf, long long iFrames, long long rFrames, int iCh, int rCh){
-    float peak_in, peak_out, scale;
+float *blockConvolve(float *ibuf, float *rbuf, long long iFrames, long long rFrames, int iCh, int rCh){
+    float peak_in;
     int oCh = iCh == 2 || rCh == 2 ? 2 : 1;
     long long outFrames = rFrames + iFrames - 1;
     long long outSamples = oCh == 1 ? outFrames : outFrames * 2L;
@@ -237,5 +237,39 @@ float *entry(float *ibuf, float *rbuf, long long iFrames, long long rFrames, int
     free(ibuf);
 	/*Free original rbuf*/
     free(rbuf);
+    return out;
+}
+
+float * regularConvolve(float *ibuf, long long paddedSize, long long iFrames, long long oFrames, int iCh, int rCh){
+    float peak_in, peak_out, scale;
+    int oCh = iCh == 2 || rCh == 2 ? 2 : 1;
+    flags num;
+    if(oCh == 1){
+        num == mono_mono;
+    }
+    else if(iCh == rCh){
+        num = stereo_stereo;
+    }
+    else if(iCh == 1){
+        num = mono_stereo;
+    }
+    else{
+        num = stereo_mono;
+    }
+    for (long long i = 0; i < iFrames; i++) {
+       float currNum = std::abs(ibuf[i]);
+        if (currNum > peak_in){
+			peak_in = currNum;
+		}
+    }
+    float *obuf = simpleConvolve(ibuf, ibuf + paddedSize, paddedSize, num);
+
+    /*Allocate memory for output*/
+    float *out = (float*) malloc(oFrames * sizeof(float));
+    memcpy(out, obuf, oFrames * sizeof(float));
+    
+    scaleArray(out, peak_in, oFrames);
+    /*Destroy and free memory*/
+    fftwf_free(ibuf);
     return out;
 }

@@ -5,17 +5,11 @@ float* seqEntry(std::string input, std::string reverb, std::string out, bool tim
 	float *ibuf, *rbuf, *obuf;
 	long long i_size = 0, r_size = 0, o_size = 0;
 	int iCh, iSR, rCh, rSR;
+	long long new_size;
+	bool blockProcessingOn = false;
+	readFileExperimental(input.c_str(), reverb.c_str(), &iCh, &iSR, &i_size, 
+		&rCh, &rSR, &r_size, &ibuf, &rbuf, &new_size, &blockProcessingOn, timeDomain);
 
-	i_size = readFile(input.c_str(), &ibuf, &iCh, &iSR);
-
-	r_size = readFile(reverb.c_str(), &rbuf, &rCh, &rSR);
-
-	if (iSR != rSR) {
-		fprintf(stderr, "ERROR: Input and reverb files are two different sample rates\n");
-		fprintf(stderr, "Input file is %i\n", iSR);
-		fprintf(stderr, "Reverb sample rate is %i\n", rSR);
-		exit(2);
-	}
 	int oCh = iCh == 2 || rCh == 2 ? 2 : 1;
 	o_size = i_size / iCh + r_size / rCh - 1;
 	long long smallerFrames = r_size / rCh < i_size / iCh ? r_size / rCh  : i_size / iCh;
@@ -38,13 +32,16 @@ float* seqEntry(std::string input, std::string reverb, std::string out, bool tim
 
 
 	std::clock_t c_start = std::clock();
-	if(!timeDomain){	
-		obuf = entry(ibuf, rbuf, i_size / iCh, r_size / rCh, iCh, rCh);
-	}
-	else{
+	if(timeDomain){	
 		obuf = (float*)malloc(o_size * oCh * sizeof(float));
 		TDconvolution(biggerBuf, smallerBuf, biggerFrames, smallerFrames, firstCh, secondCh, obuf);
 		maxScale(ibuf, i_size, o_size * oCh, obuf);
+	}
+	else if (blockProcessingOn){
+		obuf = blockConvolve(ibuf, rbuf, i_size / iCh, r_size / rCh, iCh, rCh);
+	}
+	else{
+		obuf = regularConvolve(ibuf, new_size, i_size / iCh, o_size, iCh, rCh);
 	}
 	
 	std::clock_t c_end = std::clock();
