@@ -6,6 +6,8 @@ if [[ $1 == "time" ]]; then
 fi
 if [[ $1 == "output" || $2 == "output" ]]; then
     OUT=""
+fi
+cd ~/Capstone/Sequential
 mkdir -p results
 mkdir -p temp
 mkdir -p exports

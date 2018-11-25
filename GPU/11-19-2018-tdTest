@@ -1,0 +1,118 @@
+Input: ../Audio/Ex96.wav
+Reverb: ../Audio/480000.wav
+Output:  
+
+
+The block size of this GPU is 268435456
+new_size                      4194304
+Running Time Domain Convolution
+Allocating a ton of memory for output testing
+Performing algorithm 1 on CPU
+Time for Algorithm 1: 5214817.500000 ms
+Performing algorithm 2 on CPU
+Time for Algorithm 2: 3707617.000000 ms
+
+
+Epsilon for this program is 1.000000e-06
+The maximum difference between the two buffers is at sample 0
+buf1[max] = -0.00000037
+buf2[max] = -0.00000037
+Difference= 0.000000E+00
+Error Check Algorithm 1 vs Algorithm 2 SUCCESS
+
+
+Launching Atomic
+
+Time for timeDomainConvolutionAtomic: 53322.039062 ms
+
+Epsilon for this program is 1.000000e-06
+The maximum difference between the two buffers is at sample 1646994
+buf1[max] = -3.64828825
+buf2[max] = -3.64823198
+Difference= 5.626678E-05
+
+
+Error Check Atomic vs Algorithm 1 FAILURE
+
+Epsilon for this program is 1.000000e-06
+The maximum difference between the two buffers is at sample 1646994
+buf1[max] = -3.64828825
+buf2[max] = -3.64823198
+Difference= 5.626678E-05
+
+
+Error Check Atomic vs Algorithm 2 FAILURE
+
+
+Time for Atomic Shared: 59273.648438 ms
+
+
+Epsilon for this program is 1.000000e-06
+The maximum difference between the two buffers is at sample 1647450
+buf1[max] =  1.97783542
+buf2[max] =  1.97787428
+Difference= 3.886223E-05
+
+
+Error Check Atomic Shared vs Algorithm 1 FAILURE
+
+
+Epsilon for this program is 1.000000e-06
+The maximum difference between the two buffers is at sample 1647450
+buf1[max] =  1.97783542
+buf2[max] =  1.97787428
+Difference= 3.886223E-05
+
+
+Error Check Atomic Shared vs Algorithm 2 FAILURE
+
+
+
+Launching Naive
+
+
+
+Time for Naive: 11514.409180 ms
+
+
+Epsilon for this program is 1.000000e-06
+The maximum difference between the two buffers is at sample 2070414
+buf1[max] = -1.00153816
+buf2[max] = -1.00154078
+Difference= 2.622604E-06
+
+
+Error Check Naive vs Algorithm 1 FAILURE
+
+Epsilon for this program is 1.000000e-06
+The maximum difference between the two buffers is at sample 2070414
+buf1[max] = -1.00153816
+buf2[max] = -1.00154078
+Difference= 2.622604E-06
+
+
+Error Check Naive vs Algorithm 2 FAILURE
+Launching Excessive
+
+
+Time for Excessive: 3607842.000000 ms
+
+
+Epsilon for this program is 1.000000e-06
+The maximum difference between the two buffers is at sample 1641624
+buf1[max] =  2.34417748
+buf2[max] =  2.34401703
+Difference= 1.604557E-04
+
+
+Error Check Excessive vs Algorithm 1 FAILURE
+
+Epsilon for this program is 1.000000e-06
+The maximum difference between the two buffers is at sample 1641624
+buf1[max] =  2.34417748
+buf2[max] =  2.34401703
+Difference= 1.604557E-04
+
+
+Error Check Excessive vs Algorithm 2 FAILURE
+Time for GPU convolution: 12654677.000000 ms
