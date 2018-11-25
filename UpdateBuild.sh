@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --gres=gpu:1
 cd GPU
-./build.sh
+./build.sh noexec
 cd ../Sequential
-./build.sh
+./build.sh noexec
 cd ..
 ./buildPrecisionTest.sh
 

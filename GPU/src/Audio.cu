@@ -1,5 +1,5 @@
 #include "Audio.cuh"
-void errorCheck(int iCh, int iSR, int rSR){
+void errorCheckGPU(int iCh, int iSR, int rSR){
 	if(iCh != 1){
         fprintf(stderr, "ERROR: Program can only take mono files\n");
         exit(100);
@@ -68,7 +68,7 @@ void readFileExperimental3(const char *iname, const char *rname,
 	*rframes = r_info.frames;
 	*rCh = r_info.channels;
 	/*Error check. Terminate program if requirements are not met*/
-	errorCheck(*iCh, *iSR, *rSR);
+	errorCheckGPU(*iCh, *iSR, *rSR);
 	long long totalSize = *iframes * *iCh;
 	int mod = totalSize % 2;
 	/*Find padded size for FFT*/

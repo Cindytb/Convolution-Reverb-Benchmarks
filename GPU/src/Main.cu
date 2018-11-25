@@ -18,8 +18,8 @@ float *gpuEntry(std::string input, std::string reverb, std::string out, bool tim
 	
 	if(timeDomain){
 		//float * TDconvolution(float ** buf, float ** rbuf, long long new_size, long long old_size, long long written_size);
-		//obuf = TDconvolution(&buf, &rbuf, new_size, i_size, o_size);
-		obuf = timeDomainConvolutionExperimental(&buf, &rbuf, i_size, o_size);
+		obuf = TDconvolution(&buf, &rbuf, new_size, i_size, o_size);
+		//obuf = timeDomainConvolutionExperimental(&buf, &rbuf, i_size, o_size);
 	}
 	else{
 		if(blockProcessingOn){

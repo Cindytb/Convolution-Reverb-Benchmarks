@@ -21,12 +21,10 @@
 
 float * TDconvolution(float ** d_ibuf, float ** d_rbuf, long long new_size, long long old_size, long long written_size);
 float * convolution(float ** d_ibuf, float ** d_rbuf, long long new_size, long long old_size, long long written_size);
-float * convolutionPrecisionTest(float ** d_ibuf, float ** d_rbuf, long long new_size, long long old_size, long long written_size);
 float * blockConvolution(float ** d_ibuf, float ** d_rbuf, long long old_size, long long written_size, long long audioBlockSize);
-float * timeDomainConvolutionExperimental(float ** d_ibuf, float ** d_rbuf, long long old_size, long long written_size);
+//float * timeDomainConvolutionExperimental(float ** d_ibuf, float ** d_rbuf, long long old_size, long long written_size);
 float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrames);
 
-//#ifdef _CUFFT_H_
 // cuFFT API errors
 static const char *_cudaGetErrorEnum(cufftResult error)
 {
@@ -86,7 +84,6 @@ static const char *_cudaGetErrorEnum(cufftResult error)
 
     return "<unknown>";
 }
-//#endif
 #ifndef CHECK_CUFFT_ERRORS
 #define CHECK_CUFFT_ERRORS(call) { \
     cufftResult_t err; \

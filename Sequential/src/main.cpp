@@ -12,29 +12,30 @@ float* seqEntry(std::string input, std::string reverb, std::string out, bool tim
 
 	int oCh = iCh == 2 || rCh == 2 ? 2 : 1;
 	o_size = i_size / iCh + r_size / rCh - 1;
+	fprintf(stderr, "ibuf: %p\n", ibuf);
+	fprintf(stderr, "rbuf: %p\n", rbuf);
 	long long smallerFrames = r_size / rCh < i_size / iCh ? r_size / rCh  : i_size / iCh;
 	long long biggerFrames = r_size / rCh > i_size / iCh ? r_size / rCh  : i_size / iCh;
 	
 	float *biggerBuf, *smallerBuf;
-	int firstCh, secondCh;
+	int smCh, biggerCh;
 	if(biggerFrames == r_size){
 			biggerBuf = rbuf;
 			smallerBuf = ibuf;
-			firstCh = rCh;
-			secondCh = iCh;
+			smCh = rCh;
+			biggerCh = iCh;
 	}
 	else{
 		biggerBuf = ibuf;
 		smallerBuf = rbuf;
-		firstCh = iCh;
-		secondCh = rCh;
+		smCh = iCh;
+		biggerCh = rCh;
 	}
-
 
 	std::clock_t c_start = std::clock();
 	if(timeDomain){	
 		obuf = (float*)malloc(o_size * oCh * sizeof(float));
-		TDconvolution(biggerBuf, smallerBuf, biggerFrames, smallerFrames, firstCh, secondCh, obuf);
+		TDconvolution(biggerBuf, smallerBuf, biggerFrames, smallerFrames, biggerCh, smCh, obuf);
 		maxScale(ibuf, i_size, o_size * oCh, obuf);
 	}
 	else if (blockProcessingOn){
@@ -63,11 +64,12 @@ void TDconvolution(float *ibuf, float *rbuf, size_t iframes, size_t rframes, int
 		for(int i = 0; i < oframes; i++){
 			obuf[i] = 0.0f;
 		}
-		for(size_t n = 0; n < iframes; n++){
-			for(size_t j = 0; j < rframes; j++){
-				obuf[j + n] += ibuf[n] * rbuf[j];
-			}
-		}
+		for(size_t k = 0; k < rframes; k++){
+	 		for(size_t n = 0; n < iframes; n++){
+	 			obuf[k + n] += ibuf[n] * rbuf[k];
+	 		}
+	 	}
+		return;
 	}
 	
 	/*Stereo and Stereo*/
@@ -82,6 +84,7 @@ void TDconvolution(float *ibuf, float *rbuf, size_t iframes, size_t rframes, int
 				}
 			}
 		}
+		return;
 	}
 	/*Stereo and Mono*/
 	else if(iCh == 2){
