@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH --mem=62GB
+#SBATCH --time=24:00:00
 TIME=""
 OUT=""
 if [[ $1 == "time" ]]; then

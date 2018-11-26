@@ -13,3 +13,6 @@ Audio/Ex.wav
 Audio/Ex96.wav
 GPU/obj/*
 Sequential/obj/*
+script-cims.exp
+script-hpc.exp
+moveStuff.sh

@@ -12,8 +12,6 @@ float* seqEntry(std::string input, std::string reverb, std::string out, bool tim
 
 	int oCh = iCh == 2 || rCh == 2 ? 2 : 1;
 	o_size = i_size / iCh + r_size / rCh - 1;
-	fprintf(stderr, "ibuf: %p\n", ibuf);
-	fprintf(stderr, "rbuf: %p\n", rbuf);
 	long long smallerFrames = r_size / rCh < i_size / iCh ? r_size / rCh  : i_size / iCh;
 	long long biggerFrames = r_size / rCh > i_size / iCh ? r_size / rCh  : i_size / iCh;
 	
