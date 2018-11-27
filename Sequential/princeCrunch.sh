@@ -1,6 +1,8 @@
 #!/bin/bash
+#SBATCH --mail-type=ALL 
+#SBATCH --mail-user=ctb335@nyu.edu
 #SBATCH --mem=62GB
-#SBATCH --time=04:00:00
+#SBATCH --time=05:00:00
 OUT=""
 if [[ $1 == "output" ]]; then
     OUT="output"

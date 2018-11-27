@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH --mail-type=ALL 
+#SBATCH --mail-user=ctb335@nyu.edu
 hostNo=$(hostname)
 resultsLog="results/TDresults${hostNo}.log"
 tempLog="temp/TDtemp${hostNo}.log" 
@@ -45,8 +47,8 @@ sbatch -J=2e22.log --mail-type=ALL --mail-user=ctb335@nyu.edu --mem=200   --time
 sbatch -J=2e23.log --mail-type=ALL --mail-user=ctb335@nyu.edu --mem=264   --time=04:00:00 timeTest.sh ../Audio/96000/2e23.wav
 sbatch -J=2e24.log --mail-type=ALL --mail-user=ctb335@nyu.edu --mem=392   --time=08:00:00 timeTest.sh ../Audio/96000/2e24.wav
 sbatch -J=2e25.log --mail-type=ALL --mail-user=ctb335@nyu.edu --mem=648   --time=16:00:00 timeTest.sh ../Audio/96000/2e25.wav
-sbatch -J=2e26.log --mail-type=ALL --mail-user=ctb335@nyu.edu --mem=1160  --time=32:00:00 timeTest.sh ../Audio/96000/2e26.wav
-sbatch -J=2e27.log --mail-type=ALL --mail-user=ctb335@nyu.edu --mem=2184  --time=64:00:00 timeTest.sh ../Audio/96000/2e27.wav
-sbatch -J=2e28.log --mail-type=ALL --mail-user=ctb335@nyu.edu --mem=4232  --time=128:00:00 timeTest.sh ../Audio/96000/2e28.wav
-sbatch -J=2e29.log --mail-type=ALL --mail-user=ctb335@nyu.edu --mem=8328  --time=256:00:00 timeTest.sh ../Audio/96000/2e29.wav
-sbatch -J=2e30.log --mail-type=ALL --mail-user=ctb335@nyu.edu --mem=16520 --time=512:00:00 timeTest.sh ../Audio/96000/2e30.w64
+sbatch -J=2e26.log --mail-type=ALL --mail-user=ctb335@nyu.edu --mem=1160  --time=1-8:00:00 timeTest.sh ../Audio/96000/2e26.wav
+sbatch -J=2e27.log --mail-type=ALL --mail-user=ctb335@nyu.edu --mem=2184  --time=2-16:00:00 timeTest.sh ../Audio/96000/2e27.wav
+sbatch -J=2e28.log --mail-type=ALL --mail-user=ctb335@nyu.edu --mem=4232  --time=5-8:00:00 timeTest.sh ../Audio/96000/2e28.wav
+sbatch -J=2e29.log --mail-type=ALL --mail-user=ctb335@nyu.edu --mem=8328  --time=7-0:00:00 timeTest.sh ../Audio/96000/2e29.wav
+sbatch -J=2e30.log --mail-type=ALL --mail-user=ctb335@nyu.edu --mem=16520 --time=7-0:00:00 timeTest.sh ../Audio/96000/2e30.w64
