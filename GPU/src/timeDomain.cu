@@ -3,10 +3,9 @@
 __global__ void timeDomainConvolutionPlain(float *ibuf, float *rbuf, float *obuf, long long iframes, long long rframes){
 	int threadID = blockIdx.x * blockDim.x + threadIdx.x;
 	if(threadID < iframes + rframes - 1){
-		int i_size = iframes;
 		float value = 0;
 		for(int k = 0; k < rframes; k++){
-			if(threadID - k >= 0 && threadID - k <= i_size){
+			if(threadID - k >= 0 && threadID - k <= iframes){
 				value += ibuf[threadID - k] * rbuf[k];
 			}
 		}
@@ -53,7 +52,8 @@ float *TDconvolution(float ** d_ibuf, float ** d_rbuf, long long size, long long
 	cudaEventSynchronize(stop);
 	float milliseconds = 0;
 	cudaEventElapsedTime(&milliseconds, start, stop);
-	fprintf(stderr,"Time for GPU convolution: %f ms\n", milliseconds);	checkCudaErrors(cudaFree(d_obuf));
+	fprintf(stderr,"Time for GPU convolution: %f ms\n", milliseconds);	
+	checkCudaErrors(cudaFree(d_obuf));
 	checkCudaErrors(cudaFree(*d_ibuf));
 	checkCudaErrors(cudaFree(*d_rbuf));
 	return obuf;
