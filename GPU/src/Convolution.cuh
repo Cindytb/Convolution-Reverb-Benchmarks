@@ -19,7 +19,7 @@
 #include <helper_functions.h>
 #include <helper_cuda.h>
 
-float * TDconvolution(float ** d_ibuf, float ** d_rbuf, long long new_size, long long old_size, long long written_size);
+float * TDconvolution(float ** d_ibuf, float ** d_rbuf, long long old_size, long long written_size);
 float * convolution(float ** d_ibuf, float ** d_rbuf, long long new_size, long long old_size, long long written_size);
 float * blockConvolution(float ** d_ibuf, float ** d_rbuf, long long old_size, long long written_size, long long audioBlockSize);
 //float * timeDomainConvolutionExperimental(float ** d_ibuf, float ** d_rbuf, long long old_size, long long written_size);

@@ -19,4 +19,12 @@
         do { if (DEBUG) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
                                 __LINE__, __func__, __VA_ARGS__); } while (0)
 
+
+#define _DEBUG
+#ifdef _DEBUG
+#define Print(s)  fprintf(stderr, "%s", s)
+#else
+#define Print(s)  
+#endif
+
 #endif

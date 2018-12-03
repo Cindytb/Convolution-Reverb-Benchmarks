@@ -11,19 +11,6 @@ void errorCheckGPU(int iCh, int iSR, int rSR){
 		exit(200);
 	}
 }
-// Calculates log2 of number.  
-long long findSize(long long i_size, long long r_size) {
-	int lenY = i_size + 2 * r_size - 2;
-	int currPow = 0;
-	int lenY2 = pow(2, currPow);
-
-	/* Get first first power of two larger than lenY */
-	while (lenY2 < lenY) {
-		currPow++;
-		lenY2 = pow(2, currPow);
-	}
-	return lenY2;
-}
 long long getAudioBlockSize() {
 	long long totalGPURAM = getFreeSize();
 
@@ -35,12 +22,13 @@ long long getAudioBlockSize() {
 	/* Get first first power of two less than lenY */
 	return (long long)(pow(2, floor(log2( (double)lenY ) ) ) );
 }
-void readFileExperimental3(const char *iname, const char *rname, 
+void readFile(const char *iname, const char *rname, 
 	int *iCh, int *iSR, long long *iframes, int *rCh, int *rSR,  long long *rframes, 
 	float **d_ibuf, float **d_rbuf, long long *new_size, bool *blockProcessingOn, bool timeDomain) {
 	setlocale(LC_NUMERIC, "");
+
 	/*Create cuda streams for concurrent kernels*/
-	cudaStream_t streams[2];
+	cudaStream_t streams[4];
 	float *ibuf, *rbuf;
 	SF_INFO i_info, r_info;
 	SNDFILE *i_sndfile, *r_sndfile;
@@ -72,7 +60,7 @@ void readFileExperimental3(const char *iname, const char *rname,
 	long long totalSize = *iframes * *iCh;
 	int mod = totalSize % 2;
 	/*Find padded size for FFT*/
-	
+	Print("Finding padded size for FFT\n");
 	*new_size = pow(2, ceil(log2((double)(totalSize + *rframes * *rCh - 1))));
 	if(!timeDomain){
 		if(*new_size > getAudioBlockSize()){
@@ -118,9 +106,13 @@ void readFileExperimental3(const char *iname, const char *rname,
 	checkCudaErrors(cudaMallocHost((void**)&ibuf, (totalSize / 2 + mod) * sizeof(float)));
 	checkCudaErrors(cudaMallocHost((void**)&rbuf, *rframes * *rCh * sizeof(float)));
 	
+	/*Create streams*/
+	for(int i = 0; i < 5; i++){
+		checkCudaErrors(cudaStreamCreate(&streams[i]));
+	}
+	
 	/*Read in all reverb audio data*/
-	checkCudaErrors(cudaStreamCreate(&streams[0]));
-	checkCudaErrors(cudaStreamCreate(&streams[1]));
+	Print("Reading in reverb input data\n");
 	if (r_info.channels == 1) {
 		sf_read_float(r_sndfile, rbuf, *rframes * *rCh);
 	}
@@ -135,29 +127,31 @@ void readFileExperimental3(const char *iname, const char *rname,
 		FillWithZeros<<<numBlocks, numThreads, 0, streams[1]>>>(*d_ibuf, totalSize, *new_size);
 
 	}
-	
+
 	/*Fill reverb buffer*/
-	checkCudaErrors(cudaMemcpyAsync(*d_rbuf, rbuf, *rframes * *rCh * sizeof(float), cudaMemcpyHostToDevice, streams[0]));
+	checkCudaErrors(cudaMemcpyAsync(*d_rbuf, rbuf, *rframes * *rCh * sizeof(float), cudaMemcpyHostToDevice, streams[2]));
 	
 	/*Read in all input audio data*/
 	if (i_info.channels == 1) {
 	 	sf_read_float(i_sndfile, ibuf, totalSize / 2);
 	 	checkCudaErrors(cudaMemcpy(*d_ibuf, ibuf, totalSize / 2 * sizeof(float), cudaMemcpyHostToDevice));
 	 	sf_read_float(i_sndfile, ibuf, totalSize / 2 + mod);
-	 	checkCudaErrors(cudaMemcpyAsync(*d_ibuf + totalSize / 2, ibuf, (totalSize / 2 + mod) * sizeof(float), cudaMemcpyHostToDevice, streams[1]));	
+	 	checkCudaErrors(cudaMemcpyAsync(*d_ibuf + totalSize / 2, ibuf, (totalSize / 2 + mod) * sizeof(float), cudaMemcpyHostToDevice, streams[3]));	
 	}
 	else {
 		fprintf(stderr, "ERROR: %s : Only mono files allowed", iname);
         exit(100);
 	}
+	checkCudaErrors(cudaStreamSynchronize(streams[2]));
+	checkCudaErrors(cudaStreamDestroy(streams[2]));
 	checkCudaErrors(cudaFreeHost(rbuf));
 	sf_close(i_sndfile);
 	sf_close(r_sndfile);
-	checkCudaErrors(cudaStreamSynchronize(streams[0]));
-	checkCudaErrors(cudaStreamDestroy(streams[0]));
-	checkCudaErrors(cudaStreamSynchronize(streams[1]));
-	checkCudaErrors(cudaStreamDestroy(streams[1]));
-	
+	for(int i = 0; i < 4; i++){
+		if(i == 2) continue;
+		checkCudaErrors(cudaStreamSynchronize(streams[i]));
+		checkCudaErrors(cudaStreamDestroy(streams[i]));
+	}	
 	checkCudaErrors(cudaFreeHost(ibuf));
 	
 }

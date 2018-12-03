@@ -1,6 +1,6 @@
 #include "Convolution.cuh"
 
-__global__ void timeDomainConvolutionPlain(float *ibuf, float *rbuf, float *obuf, long long iframes, long long rframes){
+__global__ void timeDomainConvolutionNaive(float *ibuf, float *rbuf, float *obuf, long long iframes, long long rframes){
 	int threadID = blockIdx.x * blockDim.x + threadIdx.x;
 	if(threadID < iframes + rframes - 1){
 		float value = 0;
@@ -12,7 +12,7 @@ __global__ void timeDomainConvolutionPlain(float *ibuf, float *rbuf, float *obuf
 		obuf[threadID] = value;
 	}
 }
-float *TDconvolution(float ** d_ibuf, float ** d_rbuf, long long size, long long old_size, long long oFrames){
+float *TDconvolution(float ** d_ibuf, float ** d_rbuf, long long iFrames, long long oFrames){
 	float *d_obuf, *obuf;
 	cudaEvent_t start, stop;
 	cudaEventCreate(&start);
@@ -22,10 +22,10 @@ float *TDconvolution(float ** d_ibuf, float ** d_rbuf, long long size, long long
 	checkCudaErrors(cudaMalloc(&d_obuf, oFrames * sizeof(float)));
 	checkCudaErrors(cudaMallocHost((void**)&obuf, oFrames * sizeof(float)));
 
-	float minmax = DExtrema(*d_ibuf, old_size);
-	long long rFrames = oFrames - old_size + 1;
-	long long smallerFrames = rFrames < old_size  ? rFrames  : old_size;
-	long long biggerFrames = rFrames >= old_size  ? rFrames  : old_size;
+	float minmax = DExtrema(*d_ibuf, iFrames);
+	long long rFrames = oFrames - iFrames + 1;
+	long long smallerFrames = rFrames < iFrames  ? rFrames  : iFrames;
+	long long biggerFrames = rFrames >= iFrames  ? rFrames  : iFrames;
 	
 	float *biggerBuf, *smallerBuf;
 	if(biggerFrames == rFrames){
@@ -38,7 +38,8 @@ float *TDconvolution(float ** d_ibuf, float ** d_rbuf, long long size, long long
 	}
 	int numThreads = 512;
 	int numBlocks = (oFrames + numThreads - 1) / numThreads;
-	timeDomainConvolutionPlain<<<numBlocks, numThreads>>> (biggerBuf, smallerBuf, d_obuf, biggerFrames, smallerFrames);
+	timeDomainConvolutionNaive<<<numBlocks, numThreads>>> (biggerBuf, smallerBuf, d_obuf, biggerFrames, smallerFrames);
+	checkCudaErrors(cudaDeviceSynchronize());
 	
 	float minmax2 = DExtrema(d_obuf, oFrames);
 	float scale = minmax/minmax2;
