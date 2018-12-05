@@ -32,9 +32,10 @@ float *gpuEntry(std::string input, std::string reverb, std::string out, bool tim
 				obuf = multiGPUFFT(buf, rbuf, i_size, r_size);
 			}
 		}
-		else
+		else{
 			Print("Running Convolution\n");
 			obuf = convolution(&buf, &rbuf, new_size, i_size, o_size);
+		}
 	}
 	if (out.c_str()[0] != ' '){
 		if (obuf != NULL){

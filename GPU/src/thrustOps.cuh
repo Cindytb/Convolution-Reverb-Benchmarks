@@ -1,4 +1,5 @@
 /*Thrust includes*/
+#include "Universal.h"
 #include <thrust/extrema.h>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
