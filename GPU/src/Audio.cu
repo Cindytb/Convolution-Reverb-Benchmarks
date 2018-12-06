@@ -123,14 +123,12 @@ void readFile(const char *iname, const char *rname,
 		checkCudaErrors(cudaStreamSynchronize(streams[2]));
 		checkCudaErrors(cudaStreamDestroy(streams[2]));
 		checkCudaErrors(cudaFreeHost(rbuf));
-		sf_close(i_sndfile);
 		sf_close(r_sndfile);
 	}
 	else{
 		checkCudaErrors(cudaStreamSynchronize(streams[2]));
 		checkCudaErrors(cudaStreamDestroy(streams[2]));
 		checkCudaErrors(cudaFreeHost(rbuf));
-		sf_close(i_sndfile);
 		sf_close(r_sndfile);
 
 		/*Read in other half of input*/
@@ -140,12 +138,12 @@ void readFile(const char *iname, const char *rname,
 			(totalSize / 2 + mod) * sizeof(float), cudaMemcpyHostToDevice, streams[3]));		
 	}
 	
-	
 	for(int i = 0; i < 4; i++){
 		if(i == 2) continue;
 		checkCudaErrors(cudaStreamSynchronize(streams[i]));
 		checkCudaErrors(cudaStreamDestroy(streams[i]));
 	}	
+	sf_close(i_sndfile);
 	checkCudaErrors(cudaFreeHost(ibuf));
 	
 }
