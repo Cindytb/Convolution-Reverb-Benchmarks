@@ -73,20 +73,9 @@ void readFile(const char *iname, const char *rname,
 		/*Allocate host pinned memory for input and reverb*/
 		checkCudaErrors(cudaMallocHost((void**)&ibuf, totalSize * sizeof(float)));
 		rbuf = (float*)malloc( *rframes * *rCh * sizeof(float));
-		if (r_info.channels == 1) {
-			sf_read_float(r_sndfile, rbuf, *rframes * *rCh);
-		}
-		else {
-			fprintf(stderr, "ERROR: %s : Only mono files allowed", rname);
-			exit(100);
-		}
-		if (i_info.channels == 1) {
-			sf_read_float(i_sndfile, ibuf, totalSize);
-		}
-		else {
-			fprintf(stderr, "ERROR: %s : Only mono files allowed", iname);
-			exit(100);
-		}
+		sf_read_float(r_sndfile, rbuf, *rframes * *rCh);
+		sf_read_float(i_sndfile, ibuf, totalSize);
+
 		*d_ibuf = ibuf;
 		*d_rbuf = rbuf;
 		return;
@@ -107,18 +96,8 @@ void readFile(const char *iname, const char *rname,
 	checkCudaErrors(cudaMallocHost((void**)&rbuf, *rframes * *rCh * sizeof(float)));
 	
 	/*Create streams*/
-	for(int i = 0; i < 5; i++){
+	for(int i = 0; i < 4; i++){
 		checkCudaErrors(cudaStreamCreate(&streams[i]));
-	}
-	
-	/*Read in all reverb audio data*/
-	Print("Reading in reverb input data\n");
-	if (r_info.channels == 1) {
-		sf_read_float(r_sndfile, rbuf, *rframes * *rCh);
-	}
-	else {
-		fprintf(stderr, "ERROR: %s : Only mono files allowed", rname);
-        exit(100);
 	}
 	if(!*blockProcessingOn){
 		int numThreads = 512;
@@ -128,25 +107,40 @@ void readFile(const char *iname, const char *rname,
 
 	}
 
-	/*Fill reverb buffer*/
+	/*Read in half of input*/
+	sf_read_float(i_sndfile, ibuf, totalSize / 2);
+	checkCudaErrors(cudaMemcpyAsync(*d_ibuf, ibuf, totalSize / 2 * sizeof(float), cudaMemcpyHostToDevice, streams[3]));
+
+	/*Read in all reverb audio data*/
+	sf_read_float(r_sndfile, rbuf, *rframes * *rCh);
 	checkCudaErrors(cudaMemcpyAsync(*d_rbuf, rbuf, *rframes * *rCh * sizeof(float), cudaMemcpyHostToDevice, streams[2]));
 	
-	/*Read in all input audio data*/
-	if (i_info.channels == 1) {
-	 	sf_read_float(i_sndfile, ibuf, totalSize / 2);
-	 	checkCudaErrors(cudaMemcpy(*d_ibuf, ibuf, totalSize / 2 * sizeof(float), cudaMemcpyHostToDevice));
-	 	sf_read_float(i_sndfile, ibuf, totalSize / 2 + mod);
-	 	checkCudaErrors(cudaMemcpyAsync(*d_ibuf + totalSize / 2, ibuf, (totalSize / 2 + mod) * sizeof(float), cudaMemcpyHostToDevice, streams[3]));	
+	if(cudaStreamQuery(streams[3]) == cudaSuccess){
+		/*Read in other half of input*/
+		sf_read_float(i_sndfile, ibuf, totalSize / 2 + mod);
+		checkCudaErrors(cudaMemcpyAsync(*d_ibuf + totalSize / 2, ibuf, 
+			(totalSize / 2 + mod) * sizeof(float), cudaMemcpyHostToDevice, streams[3]));
+		checkCudaErrors(cudaStreamSynchronize(streams[2]));
+		checkCudaErrors(cudaStreamDestroy(streams[2]));
+		checkCudaErrors(cudaFreeHost(rbuf));
+		sf_close(i_sndfile);
+		sf_close(r_sndfile);
 	}
-	else {
-		fprintf(stderr, "ERROR: %s : Only mono files allowed", iname);
-        exit(100);
+	else{
+		checkCudaErrors(cudaStreamSynchronize(streams[2]));
+		checkCudaErrors(cudaStreamDestroy(streams[2]));
+		checkCudaErrors(cudaFreeHost(rbuf));
+		sf_close(i_sndfile);
+		sf_close(r_sndfile);
+
+		/*Read in other half of input*/
+		checkCudaErrors(cudaStreamSynchronize(streams[3]));
+		sf_read_float(i_sndfile, ibuf, totalSize / 2 + mod);
+		checkCudaErrors(cudaMemcpyAsync(*d_ibuf + totalSize / 2, ibuf, 
+			(totalSize / 2 + mod) * sizeof(float), cudaMemcpyHostToDevice, streams[3]));		
 	}
-	checkCudaErrors(cudaStreamSynchronize(streams[2]));
-	checkCudaErrors(cudaStreamDestroy(streams[2]));
-	checkCudaErrors(cudaFreeHost(rbuf));
-	sf_close(i_sndfile);
-	sf_close(r_sndfile);
+	
+	
 	for(int i = 0; i < 4; i++){
 		if(i == 2) continue;
 		checkCudaErrors(cudaStreamSynchronize(streams[i]));

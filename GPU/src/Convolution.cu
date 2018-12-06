@@ -325,7 +325,7 @@ float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrame
 	size_t inSizes[numDevs];
 	bool doubleBlock = false;
 	int amtPerDevice, M = rFrames - 1;
-	printSize();
+	//printSize();
 	// if( (size_t) oFrames * (size_t)6 > getFreeSize()){
 	// 	fprintf(stderr, "ERROR: Device 0 does not have enough memory for thrust operation. Exiting program\n");
 	// 	checkCudaErrors(cudaFreeHost(ibuf));
@@ -431,7 +431,6 @@ float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrame
 	int numBlocks;
 	/*Copy each chunk of input into each GPU and pad with 0's*/
 	frames = 0;
-	//fprintf(stderr, "%s Block\n", doubleBlock ? "Double" : "Single");
 	Print("Copying memory\n");
 	for(int i = 0; i < numDevs; i++){
 		cudaSetDevice(i);
@@ -447,12 +446,9 @@ float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrame
 	
 		numBlocks = (inSizes[i] - amtRead - 1 + blockSize) / blockSize;
 		FillWithZeros<<<numBlocks, blockSize, 0, stream[i * streamsPerDev + 1]>>>(d_ibufs[i], amtRead, inSizes[i]);
-		//fillWithZeroes(&d_ibufs[i], amtRead, inSizes[i]);
 		if(!doubleBlock){	
-			//fprintf(stderr, "Filling rbuf with zeroes to pad\n");
 			numBlocks = (inSizes[i] - rFrames - 1 + blockSize) / blockSize;
 			FillWithZeros<<<numBlocks, blockSize, 0, stream[i * streamsPerDev + 2]>>>(d_rbufs[i], rFrames, inSizes[i]);
-			//fillWithZeroes(&d_rbufs[i], rFrames, inSizes[i]);
 		}
 		/*WILL BE REPLACED LATER*/
 		checkCudaErrors(cudaMemcpyAsync(d_rbufs[i], rbuf, rFrames * sizeof(float), cudaMemcpyHostToDevice, stream[i * streamsPerDev + 3]));
