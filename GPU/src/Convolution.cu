@@ -143,15 +143,9 @@ void blockConvolve(float **d_ibuf, float **d_rbuf, long long iFrames, long long 
 		}
 		
 		/*2/7/13/19 - Pad sig(L, M) with 0's, cpyAmount becomes R at the end*/
-		
-		/*2/7/13/19 - Pad sig(L, M) with 0's, cpyAmount becomes R at the end*/
-		//fprintf(stderr, "padZeroes(block, %'i, %'i)\n", cpyAmount, blockSize);
 		fillWithZeroes(&d_padded_signal, cpyAmount, blockSize);
-		//numBlocks = (blockSize - cpyAmount + numThreads - 1) / numThreads;
-		//FillWithZeros<<<numBlocks, numThreads>>>(d_padded_signal, cpyAmount, blockSize);
 		
 		/*Transform signal*/
-		//fprintf(stderr, "FFT block\n");
 		CHECK_CUFFT_ERRORS(cufftExecR2C(plan, (cufftReal *)d_padded_signal, d_sig_complex));
 		
 		#if defined WIN64 || CALLBACK == 0
@@ -163,17 +157,14 @@ void blockConvolve(float **d_ibuf, float **d_rbuf, long long iFrames, long long 
 			getLastCudaError("Kernel execution failed [ ComplexPointwiseMul]");
 		#endif
 		/*IFFT*/
-		//fprintf(stderr, "Pointwise multiply & IFFT Block\n");
 		CHECK_CUFFT_ERRORS(cufftExecC2R(outplan, d_sig_complex, d_padded_signal));
 		if (blockNo != 0) {
 			/* 9/15/21 - Point-wise add sig(0,M) + buf[N*L]*/
-			//fprintf(stderr, "Add(obuf, block[%'i], %'i)\n", blockNo * L, M);
 			PointwiseAdd << <numBlocks, numThreads >> > (d_padded_signal, &d_obuf[blockNo * L], M);
 		}
 		/*Initial case*/
 		if (blockNo == 0) {
 			/*4 - Copy sig(0,L) -> buf[0]*/
-			//fprintf(stderr, "Copy(obuf, block, %'i)\n", L);
 			checkCudaErrors(cudaMemcpy(d_obuf, d_padded_signal, L * sizeof(float), cudaMemcpyDeviceToDevice));
 		}
 		/*Last case*/
@@ -184,7 +175,6 @@ void blockConvolve(float **d_ibuf, float **d_rbuf, long long iFrames, long long 
 		/*Every other case*/
 		if(blockNo != 0 && blockNo < blockNum){
 			/*10/16 - Copy sig(M, L-M) -> buf[N * L + M]*/
-			//fprintf(stderr, "Copy(obuf[%'i], block[%'i], %'i)\n", blockNo * L + M, M, L - M);
 			checkCudaErrors(cudaMemcpy(&d_obuf[blockNo * L + M], &d_padded_signal[M], (L - M) * sizeof(float), cudaMemcpyDeviceToDevice));
 		}
 	}
@@ -325,22 +315,21 @@ float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrame
 	size_t inSizes[numDevs];
 	bool doubleBlock = false;
 	int amtPerDevice, M = rFrames - 1;
-	//printSize();
-	// if( (size_t) oFrames * (size_t)6 > getFreeSize()){
-	// 	fprintf(stderr, "ERROR: Device 0 does not have enough memory for thrust operation. Exiting program\n");
-	// 	checkCudaErrors(cudaFreeHost(ibuf));
-	// 	free(rbuf);
-	// 	return NULL;
-	// }
+	int singleDev = 0;
+	size_t maxFree = 0;
+	size_t freeSizes[numDevs];
+
 	Print("Finding free memory on each device\n");
 	/*Find out amount of free memory on each device*/
-	long long frames = 0;
+	
 	for (int i = 0; i < numDevs; i++) {
 		cudaSetDevice(i);
-		//most precise is input = freeSize()/16 - 16, but dividing by 32 to conservatively account for cuFFT space
-		size_t freeSize = getFreeSize() / 32;
+		freeSizes[i] = getFreeSize();
+		/*most precise is input = freeSize()/16 - 16, but dividing by 32 to conservatively account for cuFFT space*/
+		size_t freeSize = freeSizes[i] / 32;
 		/*max number of elements that's a power of 2*/
 		inSizes[i] = pow(2, floor(log2((double)freeSize)));	
+		//fprintf(stderr, "inSizes[%i] = %lli\n", i, inSizes[i]);
 	}
 
 	long long totalAllowedFrames = 0;
@@ -348,13 +337,18 @@ float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrame
 		totalAllowedFrames += inSizes[i] - M;
 	}
 	
+	long long frames = 0;
 	/*Allocating memory for normal case*/
 	if (totalAllowedFrames > iFrames){
 		Print("Allocating memory single block\n");
 		for(int i = 0; i < numDevs; i++){
+			if(frames >= iFrames) {
+				inSizes[i] = 0;
+				continue;
+			}
 			cudaSetDevice(i);
-			if(frames >= iFrames) break;
 			frames += inSizes[i] - M;
+			//fprintf(stderr, "Allocating device %i: blockSize: %i\n", i, inSizes[i]);
 			checkCudaErrors(cudaMalloc(&d_ibufs[i], inSizes[i] * sizeof(float)));
 			checkCudaErrors(cudaMalloc(&d_rbufs[i], inSizes[i] * sizeof(float)));
 			checkCudaErrors(cudaMalloc(&d_Cbufs[i], (inSizes[i] + 2) * sizeof(cufftComplex)));
@@ -362,34 +356,48 @@ float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrame
 	}
 	
 	else{
-		Print("Allocating memory double block\n");
+		Print("Verifying total size of GPUs\n");
 		totalAllowedFrames = 0;
 		for(int i = 0; i < numDevs; i++){
-			cudaSetDevice(i);
-			totalAllowedFrames += getFreeSize() / 4;
+			/*Theoretically should be 4. Dividing by 8 to be conservative*/
+			totalAllowedFrames += freeSizes[i] / 4;
 			totalAllowedFrames -= rFrames;
+			if (maxFree < freeSizes[i]){
+				maxFree = freeSizes[i];
+				singleDev = i;
+			}
 		}
-		if(totalAllowedFrames < iFrames + M * numDevs){
+		if(totalAllowedFrames < iFrames + M * numDevs || 
+			freeSizes[singleDev] / 4 - inSizes[singleDev] < oFrames + M){
 			fprintf(stderr, "\n\nERROR: NOT ENOUGH COLLECTIVE MEMORY ON THE GPUs. EXITING\n\n");
 			checkCudaErrors(cudaFreeHost(ibuf));
 			free(rbuf);
 			return NULL;
 		}
+		Print("Allocating memory double block\n");
 		/*Allocating memory for double block case*/
 		amtPerDevice = (iFrames + numDevs - 1) / numDevs;
+		for(int i = 0; i < numDevs; i++){
+			size_t freeSize = freeSizes[i] / 8 - rFrames;
+			freeSize = pow(2, floor(log2((double)freeSize)));
+			if (amtPerDevice + M > freeSize){
+				fprintf(stderr, "WARNING: One GPU doesn't have enough memory. Redistributing memory.\n");
+				amtPerDevice = iFrames;
+				break;
+			}
+		}
+		
 		long long framecount = 0;
 		doubleBlock = true;
 		for(int i = 0; i < numDevs; i++){
 			cudaSetDevice(i);
-			//theoretically should be 4. dividing by 8 to be conservative
-			size_t freeSize = getFreeSize() / 4;
+			/*Theoretically should be 4. Dividing by 8 to be conservative*/
+			size_t freeSize = freeSizes[i] / 8;
 			freeSize -= rFrames;
 			freeSize = pow(2, floor(log2((double)freeSize)));
 			int currFrames = amtPerDevice;
 			if (currFrames + M > freeSize){
-				fprintf(stderr, "WARNING: One GPU has very little memory left. Redistributing memory.\n");
 				currFrames = freeSize - M;
-				amtPerDevice = iFrames;
 			}
 			
 			if(framecount + currFrames > iFrames){
@@ -404,7 +412,17 @@ float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrame
 			checkCudaErrors(cudaMalloc(&d_ibufs[i], inSizes[i] * sizeof(float)));
 			checkCudaErrors(cudaMalloc(&d_rbufs[i], rFrames * sizeof(float)));
 			framecount += currFrames;
-			if(framecount >= iFrames) break;
+		}
+		if(framecount < iFrames){
+			fprintf(stderr, "\n\nERROR: NOT ENOUGH COLLECTIVE MEMORY ON THE GPUs. EXITING\n\n");
+			checkCudaErrors(cudaFreeHost(ibuf));
+			for(int i = 0; i < numDevs; i++){
+				cudaSetDevice(i);
+				checkCudaErrors(cudaFree(d_ibufs[i]));
+				checkCudaErrors(cudaFree(d_rbufs[i]));
+			}
+			free(rbuf);
+			return NULL;
 		}
 	}
 	
@@ -438,13 +456,18 @@ float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrame
 		checkCudaErrors(cudaStreamCreate(&stream[i * streamsPerDev + 1]));
 		checkCudaErrors(cudaStreamCreate(&stream[i * streamsPerDev + 2]));
 		checkCudaErrors(cudaStreamCreate(&stream[i * streamsPerDev + 3]));
+		if (inSizes[i] == 0){
+			continue;
+		}
 		long long amtRead = inSizes[i] - M;
 		if (frames + amtRead > iFrames){
 			amtRead = iFrames - frames;
 		}
-		checkCudaErrors(cudaMemcpyAsync(d_ibufs[i], ibuf + frames, amtRead * sizeof(float), cudaMemcpyHostToDevice, stream[i * streamsPerDev]));
+				
+		checkCudaErrors(cudaMemcpyAsync(d_ibufs[i], ibuf + frames, amtRead * sizeof(float), 
+			cudaMemcpyHostToDevice, stream[i * streamsPerDev]));
 	
-		numBlocks = (inSizes[i] - amtRead - 1 + blockSize) / blockSize;
+		numBlocks = (inSizes[i] - amtRead + blockSize - 1 ) / blockSize;
 		FillWithZeros<<<numBlocks, blockSize, 0, stream[i * streamsPerDev + 1]>>>(d_ibufs[i], amtRead, inSizes[i]);
 		if(!doubleBlock){	
 			numBlocks = (inSizes[i] - rFrames - 1 + blockSize) / blockSize;
@@ -455,33 +478,34 @@ float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrame
 		//fprintf(stderr, "Copying reverb\n");
 		//checkCudaErrors(cudaMemcpy(d_rbufs[i], rbuf, rFrames * sizeof(float), cudaMemcpyHostToDevice));
 		///////////////////////////////////////////////////////////
-		frames += inSizes[i] - M;
-		
-		if (frames >= iFrames){
-			break;
-		}
+		frames += amtRead;
 	}
-	checkCudaErrors(cudaFreeHost(ibuf));
-	free(rbuf);
+	
 	checkCudaErrors(cudaSetDevice(0));
 	cudaEvent_t start, stop;
-	cudaEventCreate(&start);
-	cudaEventCreate(&stop);
-	cudaEventRecord(start);
+	checkCudaErrors(cudaEventCreate(&start));
+	checkCudaErrors(cudaEventCreate(&stop));
+	checkCudaErrors(cudaEventRecord(start));
 	/*Loop through all input buffers and find the peak*/
 	frames = iFrames;
 	float minmax1 = 0;
 	Print("Find Overall peak\n");
 	for(int i = 0 ; i < numDevs; i++){
-		cudaSetDevice(i);
+		checkCudaErrors(cudaSetDevice(i));
 		checkCudaErrors(cudaStreamSynchronize(stream[i * streamsPerDev]));
 		checkCudaErrors(cudaStreamSynchronize(stream[i * streamsPerDev + 1]));
-		if(frames < 0) break;
+		if(inSizes[i] == 0) break;
 		frames -= inSizes[i] - M;
 		float minmax = DExtrema(d_ibufs[i], inSizes[i]);
 		if(minmax > minmax1)
 			minmax1 = minmax;
 	}
+	checkCudaErrors(cudaFreeHost(ibuf));
+	for(int i = 0; i < numDevs; i++){
+		checkCudaErrors(cudaSetDevice(i));
+		checkCudaErrors(cudaStreamSynchronize(stream[i * streamsPerDev + 3]));
+	}
+	free(rbuf);
 	/*Convolve all chunks*/
 	frames = iFrames;
 
@@ -492,6 +516,7 @@ float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrame
 			checkCudaErrors(cudaStreamSynchronize(stream[i * streamsPerDev + 1]));
 			checkCudaErrors(cudaStreamSynchronize(stream[i * streamsPerDev + 2]));
 			checkCudaErrors(cudaStreamSynchronize(stream[i * streamsPerDev + 3]));
+			if(inSizes[i] == 0) break;
 			blockConvolve(&d_ibufs[i], &d_rbufs[i], inSizes[i] - M, rFrames);
 		}
 	}
@@ -499,11 +524,8 @@ float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrame
 		Print("Single Block Convolution\n");
 		for(int i = 0; i < numDevs; i++){
 			cudaSetDevice(i);
-			checkCudaErrors(cudaStreamSynchronize(stream[i * streamsPerDev + 1]));
 			checkCudaErrors(cudaStreamSynchronize(stream[i * streamsPerDev + 2]));
-			checkCudaErrors(cudaStreamSynchronize(stream[i * streamsPerDev + 3]));
-			if(frames < 0) break;
-			frames -= inSizes[i] - M;
+			if(inSizes[i] == 0) break;
 			convolve(&d_ibufs[i], &d_rbufs[i], &d_Cbufs[i], inSizes[i]);
 		}
 	}
@@ -511,21 +533,22 @@ float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrame
 
 	/*Overlap-add method to combine the convolved chunks*/
 	Print("Overlap-add Reconstruction\n");
-	int singleDev = 0;
-	size_t maxFree = 0;
+	maxFree = 0;
 	for(int i = 0; i < numDevs; i++){
-		cudaSetDevice(i);
-		if (maxFree < getFreeSize()){
-			maxFree = getFreeSize();
+		checkCudaErrors(cudaSetDevice(i));
+		size_t size = getFreeSize();
+		if(maxFree > size){
+			maxFree = size;
 			singleDev = i;
 		}
 	}
-
 	checkCudaErrors(cudaSetDevice(singleDev));
+	fprintf(stderr, "SingleDev: %i\n", singleDev);
+	//printSize();
 	float *d_scratchSpace;
 	checkCudaErrors(cudaMallocHost(&obuf, oFrames * sizeof(float)));
 	checkCudaErrors(cudaMalloc(&d_obuf, oFrames * sizeof(float)));
-	checkCudaErrors(cudaMemcpyAsync(d_obuf, d_ibufs[0], inSizes[0] * sizeof(float), cudaMemcpyDefault, stream[singleDev * 4]));
+	checkCudaErrors(cudaMemcpyAsync(d_obuf, d_ibufs[0], inSizes[0] * sizeof(float), cudaMemcpyDefault, stream[singleDev * streamsPerDev]));
 	checkCudaErrors(cudaMalloc(&d_scratchSpace, M * sizeof(float)));
 	cudaSetDevice(0);
 	checkCudaErrors(cudaFree(d_ibufs[0]));
@@ -536,13 +559,16 @@ float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrame
 		if (size + cpyAmount > iFrames) {
 			cpyAmount = oFrames - size;
 		}
+		if(inSizes[i] == 0) break;
 		cudaSetDevice(i);
-		checkCudaErrors(cudaMemcpyAsync(d_obuf + size, d_ibufs[i] + M , cpyAmount * sizeof(float), cudaMemcpyDefault, stream[i * 4]));
-		checkCudaErrors(cudaMemcpyAsync(d_scratchSpace, d_ibufs[i], M * sizeof(float), cudaMemcpyDefault, stream[i * 4 + 1]));
-		
+		checkCudaErrors(cudaMemcpyAsync(d_scratchSpace, d_ibufs[i], M * sizeof(float), 
+			cudaMemcpyDefault, stream[i * streamsPerDev + 1]));
+		checkCudaErrors(cudaMemcpyAsync(d_obuf + size, d_ibufs[i] + M , cpyAmount * sizeof(float), 
+			cudaMemcpyDefault, stream[i * streamsPerDev]));
+		checkCudaErrors(cudaStreamSynchronize(stream[i * streamsPerDev + 1]));
 		cudaSetDevice(singleDev);
 		numBlocks = (M + blockSize - 1) / blockSize;
-		PointwiseAdd <<< numBlocks, blockSize >>>(d_scratchSpace, d_obuf + size - M, M);
+		PointwiseAdd <<< numBlocks, blockSize, 0, stream[singleDev * streamsPerDev] >>>(d_scratchSpace, d_obuf + size - M, M);
 		
 		size += inSizes[i] - M;
 		if(size >= oFrames){
@@ -551,20 +577,23 @@ float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrame
 	}
 	frames = iFrames;
 	for(int i = 0; i < numDevs; i++){
-		if(frames < 0) break;
 		frames -= inSizes[i] - M;
 		checkCudaErrors(cudaSetDevice(i));
 		checkCudaErrors(cudaStreamSynchronize(stream[i * 4]));
 		checkCudaErrors(cudaStreamSynchronize(stream[i * 4 + 1]));
 		checkCudaErrors(cudaStreamSynchronize(stream[i * 4 + 2]));
 		checkCudaErrors(cudaStreamSynchronize(stream[i * 4 + 3]));
+
 		if(i != singleDev){
 			checkCudaErrors(cudaStreamDestroy(stream[i * 4]));
 			checkCudaErrors(cudaStreamDestroy(stream[i * 4 + 1]));
 			checkCudaErrors(cudaStreamDestroy(stream[i * 4 + 2]));
 			checkCudaErrors(cudaStreamDestroy(stream[i * 4 + 3]));
 		}
-		if( i != 0)
+		else{
+			checkCudaErrors(cudaFree(d_scratchSpace));
+		}
+		if( i != 0 && inSizes[i] != 0)
 			checkCudaErrors(cudaFree(d_ibufs[i]));
 	}
 	Print("Attempting to find output peak\n");
@@ -603,8 +632,8 @@ float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrame
 		checkCudaErrors(cudaMemcpyAsync(&obuf[offset], &d_obuf[offset], streamBytes, cudaMemcpyDeviceToHost, stream[singleDev * streamsPerDev + i]));
 	}
 	for(int i = 0; i < 4; i++){
-		checkCudaErrors(cudaStreamSynchronize(stream[singleDev * singleDev * streamsPerDev + i]));
-		checkCudaErrors(cudaStreamDestroy(stream[singleDev * singleDev * streamsPerDev + i]));
+		checkCudaErrors(cudaStreamSynchronize(stream[singleDev  * streamsPerDev + i]));
+		checkCudaErrors(cudaStreamDestroy(stream[singleDev  * streamsPerDev + i]));
 	}
 	checkCudaErrors(cudaSetDevice(0));
 	cudaEventRecord(stop);

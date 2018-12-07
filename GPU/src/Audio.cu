@@ -70,9 +70,11 @@ void readFile(const char *iname, const char *rname,
 	int numDevs = 1;
 	cudaGetDeviceCount(&numDevs);
 	if(*blockProcessingOn && numDevs != 1){
+		Print("Allocating memory\n");
 		/*Allocate host pinned memory for input and reverb*/
 		checkCudaErrors(cudaMallocHost((void**)&ibuf, totalSize * sizeof(float)));
 		rbuf = (float*)malloc( *rframes * *rCh * sizeof(float));
+		Print("Reading input\n");
 		sf_read_float(r_sndfile, rbuf, *rframes * *rCh);
 		sf_read_float(i_sndfile, ibuf, totalSize);
 

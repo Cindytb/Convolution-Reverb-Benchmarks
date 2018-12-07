@@ -35,7 +35,10 @@ int main(int argc, char **argv){
 	fprintf(stderr, "Output: %s\n", out.c_str());
 	fprintf(stderr, "\n\n");
     float *obuf = gpuEntry(input, reverb, out, timeDomain);
-
+	if (obuf == NULL){
+		fprintf(stderr, "ERROR\n");
+		return 100;
+	}
     checkCudaErrors(cudaFreeHost(obuf));
     return 0;
 }
