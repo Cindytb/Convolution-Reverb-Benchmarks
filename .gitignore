@@ -16,3 +16,4 @@ Sequential/obj/*
 script-cims.exp
 script-hpc.exp
 moveStuff.sh
+parseTex.py

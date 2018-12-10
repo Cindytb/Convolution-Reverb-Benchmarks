@@ -543,13 +543,13 @@ float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrame
 		}
 	}
 	checkCudaErrors(cudaSetDevice(singleDev));
-	fprintf(stderr, "SingleDev: %i\n", singleDev);
 	//printSize();
 	float *d_scratchSpace;
 	checkCudaErrors(cudaMallocHost(&obuf, oFrames * sizeof(float)));
 	checkCudaErrors(cudaMalloc(&d_obuf, oFrames * sizeof(float)));
 	checkCudaErrors(cudaMemcpyAsync(d_obuf, d_ibufs[0], inSizes[0] * sizeof(float), cudaMemcpyDefault, stream[singleDev * streamsPerDev]));
 	checkCudaErrors(cudaMalloc(&d_scratchSpace, M * sizeof(float)));
+	checkCudaErrors(cudaStreamSynchronize(stream[singleDev * streamsPerDev]));
 	cudaSetDevice(0);
 	checkCudaErrors(cudaFree(d_ibufs[0]));
 	

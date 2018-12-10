@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH --mail-type=ALL 
+#SBATCH --mail-user=ctb335@nyu.edu
 #SBATCH --gres=gpu:2 -c2
 #SBATCH --mem=62GB
 TIME=""

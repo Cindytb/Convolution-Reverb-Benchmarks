@@ -27,10 +27,10 @@ while(i<noCols * h):
 
 for i in range(h):
     if (h > 9):
-        result = "$2^{" + str(i + 4) + "} & "
+        result = "$2^{" + str(i + 4) + "}$ & "
     else:
-        result="$2^" + str(i + 4) + " & "
+        result="$2^" + str(i + 4) + "$ & "
     for j in range(iteration - 1):
                result += A[j][i] + " & "
-    result += A[iteration - 1][i] + " // "
+    result += A[iteration - 1][i] + " \\ "
     print(result)
