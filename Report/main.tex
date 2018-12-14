@@ -1,0 +1,76 @@
+\input{preamble.tex}
+\input{acronyms.tex}
+\begin{document}
+
+\input{title_contents.tex}
+
+\section{Introduction}
+\input{Intro.tex}
+
+
+\section{Background}
+\input{background.tex}
+
+\section{Project Description}
+\subsection{Overall Algorithm}
+I am reading the audio samples as 32 bit floating point numbers using the libsndfile library \citep{lopo_2013}. When writing audio files interpreted as floats, audio falls between -1.0 and 1.0. Due to the nature of discrete convolution, the output values will be significantly greater than the input and most likely exceed a peak of 1 because of the summation. It is required to scale the output so that the output audio doesn't clip, and this process is called normalization.
+
+I chose peak normalization. The formula for peak normalization is to find the maximum value of the absolute value of the input signal and store it. After doing convolution, find the peak of the output. Then, multiply the entire output by the input peak divided by the output peak. 
+
+\vspace{5mm}
+\textbf{Generic FIR Convolution Algorithm}
+\begin{enumerate}
+   \item Read input wave file
+   \item Read filter wave file
+   \item Find peak of input
+   \item Convolve the two signals
+   \item Find peak of output
+   \item Scale output according to the input
+   \item (Optional) Write output to a file
+\end{enumerate}
+
+
+\input{sequential.tex}
+\input{cudaOverview.tex}
+\input{cudaAlgorithms.tex}
+
+\subsection{Results}
+\input{results.tex}
+
+\subsection{Conclusion}
+
+\indent \par For time domain convolution, the \gls{gpu} is slower than the \gls{cpu} until the input size reaches $2^{10}$. This is 1024 samples, or 10 milliseconds of audio at 96kHz. $2^{28}$ samples, the highest test value for both, is just over a quarter of a billion samples, or about 46 minutes of audio at 96kHz. This number of samples on a \gls{cpu} took 4 days, 18 hours, and about 27 minutes to compute, while it took 13 minutes on the \gls{gpu}. That's a $\sim$50x speedup. It's also incredibly unreasonable to wait 4 days to process a single audio file. As started earlier, considering that the time approximately doubles for each doubling of input size, $2^{29}$ is projected to take 9 days, and $2^{30}$ is projected to take 19 days. 
+
+For frequency domain convolution, the \gls{gpu} begins to be useful for inputs of $2^{23}$ and above. This is equivalent to 8,388,608 samples or $\sim$87 seconds of audio at 96kHz. At $2^{30}$ samples, which is just over 1 billion samples or just over 3 hours of audio, there is a $\sim$44x speedup from $\sim$8.7 minutes to $\sim$11.8 seconds.
+
+
+Combining these these results, \gls{cpu} frequency domain convolution is the fastest for inputs smaller than $2^{23}$ samples ($\sim$87 seconds), and \gls{gpu} frequency domain convolution is the fastest for any inputs larger than that. 
+
+\section{Future Work}
+
+\paragraph{More CUDA Optimizations} \hspace{0pt} \\
+\indent This code is far from perfect. More optimizations can be performed on the code through experimentation and trial and error. One example is to do experiments on choosing the block sizes. Another is to incorporate multi-GPU systems for time domain convolution. 
+
+\paragraph{OpenMP + CUDA (parallel \gls{cpu}, parallel \gls{gpu})} \hspace{0pt} \\
+\indent OpenMP is a a platform originally designed for multi-core \glspl{cpu}. Combining OpenMP and CUDA can allow for even more parallelism. For instance, different threads of a \gls{cpu} can launch the single block convolution or double block convolution function to be sent to each \gls{gpu}. 
+
+\paragraph{Creating a VST Library of CUDA Accelerated Audio Plug-ins} \hspace{0pt} \\
+\indent The goal would be to have a checkbox in current plug-ins to allow for GPU acceleration. I could use the JUCE framework and try to make it compatible with Digital Audio Workstations such as REAPER, Pro Tools, and Logic.
+
+\paragraph{Stereo and Multi-Channel Support} \hspace{0pt} \\
+\indent This would be for the immersive audio applications - whether it's for \gls{hrtf} convolution in real time or for multi-channel setups.
+
+\newpage
+\raggedright
+\addcontentsline{toc}{section}{References}
+\bibliographystyle{apacite}
+\bibliography{references.bib}
+
+\newpage
+
+\printglossary
+
+\newpage
+\input{appendix.tex}
+
+\end{document}

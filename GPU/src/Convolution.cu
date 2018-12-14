@@ -328,8 +328,7 @@ float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrame
 		/*most precise is input = freeSize()/16 - 16, but dividing by 32 to conservatively account for cuFFT space*/
 		size_t freeSize = freeSizes[i] / 32;
 		/*max number of elements that's a power of 2*/
-		inSizes[i] = pow(2, floor(log2((double)freeSize)));	
-		//fprintf(stderr, "inSizes[%i] = %lli\n", i, inSizes[i]);
+		inSizes[i] = pow(2, floor(log2((double)freeSize)));
 	}
 
 	long long totalAllowedFrames = 0;

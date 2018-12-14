@@ -1,0 +1,81 @@
+\subsection{Digital Signal Processing Background}
+\indent \par Massive convolution is a type of convolution with very large inputs - in the realm of millions of samples or more.
+
+Convolution itself is a mathematical operation that causes a signal's shape to be modified by another, typically smaller signal. For audio, it causes the frequency content of two signals to blend together. I'm going to refer to the signal to be convolved as the input signal and the smaller, shape-modifying signal as a filter.
+
+In \gls{dsp}, convolution is the operation by which \gls{lsi} systems are implemented. A system is a general term for an operation on an input signal that results in a modified output signal. \gls{lsi} systems are combinations of delay and amplitude modulation. The audio filters implemented in this manner are called \gls{fir} filters. The most common \gls{fir} filters are \gls{eq} filters (such as low-pass, band-pass, and high-pass filters), binaural spatialization with \glspl{hrtf}, and adding reverberation to a signal. For EQ filters, the size of the filter increases with the quality of the filter. It can range from 10 samples to 680476 samples \citep{lopo_2011}. \gls{hrtf} filters vary between 128 to 512 samples \citep{andreopoulou2011towards}. 
+
+For reverberation (reverb), the filter is typically how long it takes for an impulse or a sudden burst of sound to dissipate in a room. This used to be recorded by popping a balloon or shooting a starter pistol in a room. This is typically around 2 seconds long. At a sample rate of 96kHz, that would mean 192,000 samples. Having a 5 second reverb filter - which intuitively makes sense for a very reverberant room - would create a filter of 480,000 samples. Some impulses could even be 10-20 seconds long such as a gymnasium, so 960,000 - 19,200,000 samples long.
+
+A 480,000 sample filter intuitively makes sense, however 460,800,000,000 computations are required to perform convolution with 480,000 samples on an input that is also 480,000 samples. This is because of the formula for full convolution:
+\begin{center}
+$$(x * h)[n] = y[n] = \sum_{k=0}^{K-1} x[n-k] \cdot h[k]$$
+where $x =$ input signal, $h =$ filter
+
+$\cdot$ is the arithmetic multiplication operator (normal multiplication)
+
+$N =$ length of $x$, $K =$ length of $h$
+
+$0 \leq n \le N + K - 1 <==> n = [0, N + K)$
+
+all out-of-bounds values of $x$ are assumed to be 0\footnote{Through the entirety of this paper, I will represent the input as $x$, the filter as $h$, the length of $x$ as $N$, and the length of $h$ as $K$. $N$ will be used in other contexts as the number of elements, but these variables and future variables will refer to the same definition.}
+
+\end{center}
+\noindent $(x * h)$ means the convolution of $x$ and $h$, where $*$ is the convolution operator. Ignoring the corner-cases at the beginning and the end, this formula is saying that a single point of the output is the sum of each point of the filter multiplied by a point of the input. Each output value requires at most $K$ multiplies and $K - 1$ additions. The length of the output is $N + K - 1$. The number of calculations is therefore proportional to $(N + K - 1) \cdot (2K - 1) \propto 2K(N + K)$. Including the corner cases where there are 1 to $K - 1$ terms added together, the true number of multiplication and addition operations would be 
+
+$$N \cdot K \cdot 2 = 460,800,000,000$$ 
+
+The number of computations is proportional to the size of the input multiplied by the size of the filter, and the worse case scenario is if the filter and input are of the same length. In general, this means that the convolution operation, or more conceptually - the convolution algorithm -, is of the order $N^2$, notated as $O(N^2)$. 
+
+By computer science standards, an algorithm with $O(N^2)$ is very slow. So, actual implementations of convolution utilize the Convolution Theorem which implement the Fourier transform (represented here by $F()$)
+
+$$F(x * h)  = F(x) \cdot F(h)$$
+$$(x * h) = F^{-1}(F(x) \cdot F(h))$$
+This says that taking the Fourier transform of the input and filter, point-wise multiplying them together, and taking the inverse Fourier transform of the product is equivalent to taking the convolution of $x$ and $h$.
+
+This is preferred because an implementation of the Fourier transform known as the \gls{fft}, or more specifically the widely used Cooley-Tukey FFT algorithm, has a computational complexity of $O(N\log_2{N})$ for input sizes that are a power of 2. 
+
+Taking the \gls{fft} of two signals and multiplying them would result in a computational complexity of:
+
+$$N\log_2{N} + N\log_2{N} + N$$
+$$2N\log_2{N} + N $$
+$$N\log_2{N}$$
+For computational complexity, the coefficients are ignored and only the largest term in a polynomial is used, because they don't create much of an impact as $N$ grows infinitely large.
+
+$O(N\log_2{N})$ has a significantly smaller growth rate than $O(N^2)$. For example, if $N = 480,000$, 
+$$\ceil{480000\log_2{480000}} = 905,889$$
+$$480000^2 = 230,400,000,000$$
+
+This means that a frequency-domain convolution would take approximately 905 thousand computations, while a time-domain convolution would take 230 billion computations. As N grows, $N^2$ will become significantly larger than $N\log_2{N}$. However, performing the FFT is an overhead. For small filters and small inputs, time domain convolution will be faster. 
+
+\vspace{5mm}
+
+Unfortunately, all of the past examples have been 5 seconds worth of audio at 96kHz, or 10 seconds of audio at 48kHz. Actual audio inputs can be anywhere from 1 second to several days long. To put it in perspective, the movie \textit{Interstellar} is 2 hours and 49 minutes long. The entirety of \textit{Interstellar}, assuming it is in stereo and pretending that films use a sample rate of 96kHz, is 1,946,880,000 samples. Even thinking about $N\log_2{N}$ or $N^2$ of that number is frightening. This is why we use computers to do the math for us!
+
+\subsection{Computer Science/Computer Engineering Background}
+When writing programs that deals with audio, typically the samples are read as 32 bit floating-point numbers. This is due to programmer convenience - the math is easier, and the programmer doesn't have to worry about integer underflow or overflow.
+
+There's a specification for processing units called \gls{flops} This number is generally in the range of billions, so they're further specified in whitepapers as \gls{gflops}. As an example let's take a 5th Generation Intel® (Codename Broadwell, primary architecture type codename Haswell) Core™ I5-5575R  processor, which was released in 2014 \citep{export_compliance}. The R means that it is a desktop CPU based off a mobile chip, and it contains high performance graphics \citep{intel}. Its peak theoretical number of \gls{gflops} is 179.2. This means that it can do theoretically do 179,200,000,000 floating point operations per second. It could convolve our 5 second audio with our 5 second reverb in about 0.005 milliseconds if using the frequency-domain convolution algorithm. It would take at least 2.5 seconds to do the same in the time domain. 
+
+To give a massively larger estimate, let's plug in the number of samples in \textit{Interstellar} to the computational complexities of time domain and frequency domain convolution as an estimate of the number of computations, and then divide that by the number of GFLOPS on this CPU. I said before that \textit{Interstellar} has approximately 1,946,880,000 samples if it were recorded at 96kHz. I'm going to use $3N\log_2N + N$ in the frequency domain approximation of number of computations (two forward Fourier transforms, one pointwise multiplication, and one inverse Fourier transform). Here, $s$ means seconds and $c$ means computations.
+
+$$ \frac{(1.94688 \cdot 10^9)^2 c}{179.2 \cdot 10^9  c/s} = 21,151,460.6s$$
+
+\noindent 21,151,460.6 seconds = 352,524.343 minutes = 5,875.40572 hours = 244.808572 days $\approx$ 8 months and 5 days.
+
+$$\frac{(3 \cdot 1.94688 \cdot 10^9)\log_2(1.94688 \cdot 10^9) + 1.94688 \cdot 10^9 c}{179.2 \cdot 10^9 c/s} = 1.01663152s$$
+
+This is why we do convolution in the frequency domain!
+
+
+The problem is that processors rarely ever reach peak performance for a single process or operation. The \gls{cpu} has to run an operating system at the same time, which is an extremely resource intensive software. In addition to that, there will be hardware latency in reading data to the \gls{cpu} and writing data. Since the \gls{cpu} operates sequentially, the \gls{cpu} can't do any computations while it's waiting to receive data or if there is a system call to the operating system. This causes massive slowdown - even if the processor is multi-core, meaning it has multiple \gls{cpu}'s inside of a single chip.\footnote{Programming for multi-core \gls{cpu}'s is another field that can be explored, but this paper will not deal with multi-core processing units} 
+
+A \gls{gpu}, on the other hand, is designed to maximize \gls{gflops} by processing these computations in parallel. For example, take the Nvidia Tesla M40 graphics card (Generation codename Maxwell) which was also released in 2014. The Tesla series are the high end \glspl{gpu} meant for data centers and high performance computing. It has a theoretical peak of 6,840 \gls{gflops}, single-precision \citep{teslagp100}. Blindly inserting them into the previous equations:
+
+$$\frac{(1.94688 \cdot 10^9)^2 c}{6.84 \cdot 10^12  c/s} = 554,143.528 s$$
+554,143.528 seconds = 9,235.72547 minutes = 153.928758 hours = 6.41369825 days
+$$\frac{(3 \cdot 1.94688 \cdot 10^9)\log_2(6.84 \cdot 10^12) + 1.94688 \cdot 10^9 c}{6.84 \cdot 10^12  c/s} = 0.0366922554 s$$
+
+That's a \textit{significant} performance boost. However, peak \gls{gflops} comes with the caveat that it's almost impossible to reach. Getting anywhere close to the peak theoretical \gls{gflops} on a \gls{gpu} in performance requires specific programming techniques and computational thinking. 
+
+The actual amount of time that these computations will take for either chip requires experimentation - trial and error. This paper is a culmination of a benchmarking test of both time domain and frequency domain convolution on a \gls{cpu} and \glspl{gpu}. The \gls{cpu} program is purely sequential, ignoring multi-core programming. Both programs are written in C with some C++, and the \gls{gpu} accelerated code uses NVIDIA's \gls{cuda} platform/\gls{api}.

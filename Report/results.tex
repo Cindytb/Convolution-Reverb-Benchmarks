@@ -1,0 +1,297 @@
+
+\subsubsection{Preparation and Inputs}
+\indent \par My input data set consists of 26 different sized inputs and one filter. The inputs sizes were $2^4$, $2^5$, $2^6$, ... $2^{30}$ samples long. For preparation, I created sine sweeps/chirps of that many samples long using Erik D Castro Lopo's sndfile-tools, and I exported them into mono wave files at 96kHz \citep{lopo_2017}. My filter was 480,000 samples, which is equivalent to 5 seconds of audio at 96kHz.
+
+I used the New York University High Performance Computing (NYU HPC) clusters for my benchmarking tests\footnote{www.nyu.edu/life/information-technology/research-and-data-support/high-performance-computing.html}. I also used the Courant Institute of Mathematical Sciences (CIMS) GPU Computing servers\footnote{cims.nyu.edu/webapps/content/systems/resources/computeservers} for preliminary testing and profiling. The \glspl{gpu} that I have tested on at the NYU HPC are Tesla K80 (4/8 per node), Geforce GTX 1080 (4 per node), Tesla P40 (4 per node), Tesla P100(4 per node), and Tesla V100 (2/4 per node). CIMS servers have two Geforce GTX TITAN Black on one server, GeForce GTX TITAN Z and two GeForce GTX Titan X on another, and two GeForce GTX Titan Z on the last. 
+
+In terms of \glspl{cpu}, I used the same compute clusters. The NYU HPC has several types and generations of CPUs including codename IvyBridge, Broadwell, Haswell, and Skylake, and they all have different processor speeds. The exact CPU I used will be specified in the charts. The CIMS servers have AMD Opterons (6272 and 6136), which I did preliminary testing on.
+
+I did 10 trials of the same input set for \gls{gpu} time domain convolution, \gls{gpu} frequency domain convolution, and \gls{cpu} frequency domain convolution. Unfortunately, \gls{cpu} time domain convolution took too long. Input sizes of $2^{29}$ and $2^{30}$ took too long to complete on the \gls{hpc} clusers that I was using. I also only did one trial for $2^4 - 2^{28}$ in the time domain because the later inputs took so much time. $2^{29}$ is projected to take 9 days, and $2^{30}$ is projected to take 19 days to compute for Sequential Time Domain Convolution. 
+
+All \gls{gpu} results had an accuracy of at least $1 \cdot 10^{-5}$ in comparison to the \gls{cpu}. The largest inaccuracies were around $2 \cdot 10^{-6}$.
+
+\subsubsection{Average Results}
+    \includegraphics[width=\textwidth]{"Time Domain Convolution CPU vs GPU"}
+    \includegraphics[width=\textwidth]{"Time Domain Convolution CPU vs GPU (1)"}
+    
+    \includegraphics[width=\textwidth]{"Frequency Domain Convolution CPU vs GPU"}
+    \includegraphics[width=\textwidth]{"Frequency Domain Convolution CPU vs GPU (1)"}
+    
+    \includegraphics[width=\textwidth]{"Convolve Time CPU vs GPU"}
+\begin{center}
+    Intel(R) IvyBridge @ 3.00GHz with 62 / 188 GB memory
+    
+    Time For CPU Time Domain Convolution
+    
+    \begin{tabular}{c | c | c | c}
+         Input Size & Time (s) &  Approximate Computation Time (s) & Percentage Computation Time \\
+        $2^4$ & 0.198 & 0.030 & 15.15\% \\
+        $2^5$ & 0.062 & 0.050 & 80.65\% \\
+        $2^6$ & 0.129 & 0.100 & 77.52\% \\
+        $2^7$ & 0.207 & 0.200 & 96.62\% \\
+        $2^8$ & 0.401 & 0.390 & 97.26\% \\
+        $2^9$ & 0.791 & 0.780 & 98.61\% \\
+        $2^{10}$ & 1.568 & 1.560 & 99.49\% \\
+        $2^{11}$ & 3.132 & 3.110 & 99.30\% \\
+        $2^{12}$ & 6.245 & 6.230 & 99.76\% \\
+        $2^{13}$ & 12.462 & 12.440 & 99.82\% \\
+        $2^{14}$ & 24.928 & 24.890 & 99.85\% \\
+        $2^{15}$ & 49.790 & 49.740 & 99.90\% \\
+        $2^{16}$ & 99.584 & 99.460 & 99.88\% \\
+        $2^{17}$ & 199.248 & 199.150 & 99.95\% \\
+        $2^{18}$ & 398.551 & 398.130 & 99.89\% \\
+        $2^{19}$ & 796.193 & 795.980 & 99.97\% \\
+        $2^{20}$ & 1592.686 & 1592.060 & 99.96\% \\
+        $2^{21}$ & 3199.540 & 3198.720 & 99.97\% \\
+        $2^{22}$ & 6436.107 & 6435.200 & 99.99\% \\
+        $2^{23}$ & 12855.971 & 12854.270 & 99.99\% \\
+        $2^{24}$ & 25759.761 & 25751.890 & 99.97\% \\
+        $2^{25}$ & 51318.888 & 51296.400 & 99.96\% \\
+        $2^{26}$ & 102916.184 & 102798.050 & 99.89\% \\
+        $2^{27}$ & 205237.316 & 205057.440 & 99.91\% \\
+        $2^{28}$ & 412070.139 & 411756.310 & 99.92\% \\
+    \end{tabular} 
+    \newpage
+    
+    1 Tesla P40, 24 GB Memory
+    
+    Average Time For GPU Time Domain Convolution
+    
+    \begin{tabular}{c | c | c | c}
+         Input Size & Average Time (s) &  Approximate Computation Time (s) & Percentage Computation Time \\
+         $2^4$ & 1.9813 & 0.003018096 & 0.15\% \\
+         $2^5$ & 1.9313 & 0.0047808736 & 0.25\% \\
+         $2^6$ & 1.9252 & 0.0051817632 & 0.27\% \\
+         $2^7$ & 1.9288 & 0.0054029632 & 0.28\% \\
+         $2^8$ & 1.9179 & 0.0064762464 & 0.34\% \\
+         $2^9$ & 1.9268 & 0.0073473792 & 0.38\% \\
+         $2^{10}$ & 1.9323 & 0.0097226944 & 0.50\% \\
+         $2^{11}$ & 1.9258 & 0.013106544 & 0.68\% \\
+         $2^{12}$ & 1.935 & 0.0207268895 & 1.07\% \\
+         $2^{13}$ & 1.9413 & 0.0355993409 & 1.83\% \\
+         $2^{14}$ & 1.9824 & 0.0647762336 & 3.27\% \\
+         $2^{15}$ & 2.0446 & 0.1231666786 & 6.02\% \\
+         $2^{16}$ & 2.1249 & 0.2105333726 & 9.91\% \\
+         $2^{17}$ & 2.3295 & 0.4084287079 & 17.53\% \\
+         $2^{18}$ & 2.7978 & 0.8491014223 & 30.35\% \\
+         $2^{19}$ & 3.6862 & 1.762778601 & 47.82\% \\
+         $2^{20}$ & 5.2535 & 3.312563647 & 63.05\% \\
+         $2^{21}$ & 8.3561 & 6.420397461 & 76.83\% \\
+         $2^{22}$ & 14.6672 & 12.63506641 & 86.15\% \\
+         $2^{23}$ & 27.0572 & 25.09269219 & 92.74\% \\
+         $2^{24}$ & 51.9975 & 49.99425547 & 96.15\% \\
+         $2^{25}$ & 101.7667 & 99.69218125 & 97.96\% \\
+         $2^{26}$ & 201.1397 & 198.9340703 & 98.90\% \\
+         $2^{27}$ & 400.7261 & 398.3048813 & 99.40\% \\
+         $2^{28}$ & 797.9594 & 795.079025 & 99.64\% \\
+         $2^{29}$ & 1597.2998 & 1593.526625 & 99.76\% \\
+         $2^{30}$ & 3195.1222 & 3189.6074 & 99.83\% 
+    \end{tabular}
+    \newpage
+    Time Domain Speedup Amount
+    
+     \begin{tabular}{c | c}
+         Input Size & Speedup amount (CPU time / GPU time) \\
+$2^4$ & 0.0999 \\
+$2^5$ & 0.0321 \\
+$2^6$ & 0.067 \\
+$2^7$ & 0.1073 \\
+$2^8$ & 0.2091 \\
+$2^9$ & 0.4105 \\
+$2^{10}$ & 0.8115 \\
+$2^{11}$ & 1.6263 \\
+$2^{12}$ & 3.2274 \\
+$2^{13}$ & 6.4194 \\
+$2^{14}$ & 12.5747 \\
+$2^{15}$ & 24.352 \\
+$2^{16}$ & 46.8653 \\
+$2^{17}$ & 85.5325 \\
+$2^{18}$ & 142.4516 \\
+$2^{19}$ & 215.9929 \\
+$2^{20}$ & 303.1667 \\
+$2^{21}$ & 382.8987 \\
+$2^{22}$ & 438.8095 \\
+$2^{23}$ & 475.1405 \\
+$2^{24}$ & 495.4038 \\
+$2^{25}$ & 504.2798 \\
+$2^{26}$ & 511.6652 \\
+$2^{27}$ & 512.1636 \\
+$2^{28}$ & 516.4049
+    \end{tabular}
+    \newpage
+    Intel(R) IvyBridge @ 3.00GHz, 1510 GB Memory
+    
+    Average Time For CPU Frequency Domain Convolution
+   
+    \begin{tabular}{ c | c | c | c }
+        Input Size & Wall-Clock Time (s) &  Approximate Computation Time (s) & Percentage Computation Time \\
+$2^{4}$ & 0.066 & 0.042 & 63.64\% \\
+$2^{5}$ & 0.054 & 0.04 & 74.07\% \\
+$2^{6}$ & 0.054 & 0.041 & 75.93\% \\
+$2^{7}$ & 0.054 & 0.041 & 75.93\% \\
+$2^{8}$ & 0.053 & 0.04 & 75.47\% \\
+$2^{9}$ & 0.053 & 0.037 & 69.81\% \\
+$2^{10}$ & 0.052 & 0.039 & 75.00\% \\
+$2^{11}$ & 0.055 & 0.041 & 74.55\% \\
+$2^{12}$ & 0.052 & 0.039 & 75.00\% \\
+$2^{13}$ & 0.054 & 0.041 & 75.93\% \\
+$2^{14}$ & 0.054 & 0.041 & 75.93\% \\
+$2^{15}$ & 0.058 & 0.038 & 65.52\% \\
+$2^{16}$ & 0.11 & 0.096 & 87.27\% \\
+$2^{17}$ & 0.117 & 0.096 & 82.05\% \\
+$2^{18}$ & 0.109 & 0.097 & 88.99\% \\
+$2^{19}$ & 0.112 & 0.099 & 88.39\% \\
+$2^{20}$ & 0.235 & 0.213 & 90.64\% \\
+$2^{21}$ & 0.483 & 0.457 & 94.62\% \\
+$2^{22}$ & 0.986 & 0.939 & 95.23\% \\
+$2^{23}$ & 2.164 & 2.085 & 96.35\% \\
+$2^{24}$ & 5.75 & 5.662 & 98.47\% \\
+$2^{25}$ & 12.416 & 12.239 & 98.57\% \\
+$2^{26}$ & 26.812 & 26.458 & 98.68\% \\
+$2^{27}$ & 56.285 & 55.451 & 98.52\% \\
+$2^{28}$ & 116.734 & 115.128 & 98.62\% \\
+$2^{29}$ & 244.123 & 241.199 & 98.80\% \\
+$2^{30}$ & 487.672 & 481.517 & 98.74\% \\
+    \end{tabular}
+    
+    
+    \newpage
+    2 Tesla P40s
+    
+    Average Time For GPU Frequency Domain Convolution
+    
+    \begin{tabular}{c | c | c | c}
+        Input Size & Average Time (s) &  Approximate Computation Time (s) & Percentage Computation Time \\
+$2^{4}$ & 1.9203 & 0.0059533184 & 0.31\% \\ 
+$2^{5}$ & 1.8526 & 0.0065043104 & 0.35\% \\ 
+$2^{6}$ & 1.8776 & 0.0065016384 & 0.35\% \\ 
+$2^{7}$ & 1.862 & 0.00660904 & 0.35\% \\ 
+$2^{8}$ & 1.8584 & 0.0068647776 & 0.37\% \\ 
+$2^{9}$ & 1.8803 & 0.0065337216 & 0.35\% \\ 
+$2^{10}$ & 1.8545 & 0.0070737536 & 0.38\% \\ 
+$2^{11}$ & 1.8752 & 0.0069644192 & 0.37\% \\ 
+$2^{12}$ & 1.8432 & 0.0071045568 & 0.39\% \\ 
+$2^{13}$ & 1.8821 & 0.0071115136 & 0.38\% \\ 
+$2^{14}$ & 1.8565 & 0.0070284512 & 0.38\% \\ 
+$2^{15}$ & 1.8681 & 0.0070598912 & 0.38\% \\ 
+$2^{16}$ & 1.8578 & 0.0084875296 & 0.46\% \\ 
+$2^{17}$ & 1.8712 & 0.0082453888 & 0.44\% \\ 
+$2^{18}$ & 1.8664 & 0.0084937664 & 0.46\% \\ 
+$2^{19}$ & 1.8436 & 0.007940288 & 0.43\% \\ 
+$2^{20}$ & 1.88 & 0.0110684832 & 0.59\% \\ 
+$2^{21}$ & 1.8684 & 0.0172404769 & 0.92\% \\ 
+$2^{22}$ & 1.9202 & 0.0289777443 & 1.51\% \\ 
+$2^{23}$ & 1.9231 & 0.0517229828 & 2.69\% \\ 
+$2^{24}$ & 2.0379 & 0.0972439111 & 4.77\% \\ 
+$2^{25}$ & 2.1687 & 0.1793229475 & 8.27\% \\ 
+$2^{26}$ & 2.4598 & 0.3332685455 & 13.55\% \\ 
+$2^{27}$ & 3.0354 & 0.6327356995 & 20.85\% \\ 
+$2^{28}$ & 4.2025 & 1.265475452 & 30.11\% \\ 
+$2^{29}$ & 7.6584 & 2.070492627 & 27.04\% \\ 
+$2^{30}$ & 11.4767 & 4.140983374 & 36.08\% 
+    \end{tabular}
+    \newpage
+    Frequency Domain Speedup Amount
+    
+     \begin{tabular}{c | c}
+         Input Size & Speedup amount (CPU time / GPU time) \\
+$2^4$ & 0.0344 \\
+$2^5$ & 0.0291 \\
+$2^6$ & 0.0288 \\
+$2^7$ & 0.029 \\
+$2^8$ & 0.0285 \\
+$2^9$ & 0.0282 \\
+$2^{10}$ & 0.028 \\
+$2^{11}$ & 0.0293 \\
+$2^{12}$ & 0.0282 \\
+$2^{13}$ & 0.0287 \\
+$2^{14}$ & 0.0291 \\
+$2^{15}$ & 0.031 \\
+$2^{16}$ & 0.0592 \\
+$2^{17}$ & 0.0625 \\
+$2^{18}$ & 0.0584 \\
+$2^{19}$ & 0.0608 \\
+$2^{20}$ & 0.125 \\
+$2^{21}$ & 0.2585 \\
+$2^{22}$ & 0.5135 \\
+$2^{23}$ & 1.1253 \\
+$2^{24}$ & 2.8215 \\
+$2^{25}$ & 5.7251 \\
+$2^{26}$ & 10.9001 \\
+$2^{27}$ & 18.5429 \\
+$2^{28}$ & 27.7773 \\
+$2^{29}$ & 31.8765 \\
+$2^{30}$ & 42.4924 
+    \end{tabular}
+
+\begin{landscape}
+    \small\newpage
+    
+    Time Domain CPU VS GPU
+    \begin{tabular}{c|c|c|c|c|c|c}
+         Input Size & CPU Average Time (s) & GPU Average Time (s) & CPU Computation Time (s) & GPU Computation Time (s) & CPU Percentage & GPU Percentage \\
+         $2^4$ & 0.0198 & 1.9813 & 0.003 & 0.003018096 & 15.15\% & 0.15\% \\
+        $2^5$ & 0.0062 & 1.9313 & 0.005 & 0.0047808736 & 80.65\% & 0.25\% \\
+        $2^6$ & 0.0129 & 1.9252 & 0.01 & 0.0051817632 & 77.52\% & 0.27\% \\
+        $2^7$ & 0.0207 & 1.9288 & 0.02 & 0.0054029632 & 96.62\% & 0.28\% \\
+        $2^8$ & 0.0401 & 1.9179 & 0.039 & 0.0064762464 & 97.26\% & 0.34\% \\
+        $2^9$ & 0.0791 & 1.9268 & 0.078 & 0.0073473792 & 98.61\% & 0.38\% \\
+        $2^{10}$ & 0.1568 & 1.9323 & 0.156 & 0.0097226944 & 99.49\% & 0.50\% \\
+        $2^{11}$ & 0.3132 & 1.9258 & 0.311 & 0.013106544 & 99.30\% & 0.68\% \\
+        $2^{12}$ & 0.6245 & 1.935 & 0.623 & 0.0207268895 & 99.76\% & 1.07\% \\
+        $2^{13}$ & 1.2462 & 1.9413 & 1.244 & 0.0355993409 & 99.82\% & 1.83\% \\
+        $2^{14}$ & 2.4928 & 1.9824 & 2.489 & 0.0647762336 & 99.85\% & 3.27\% \\
+        $2^{15}$ & 4.979 & 2.0446 & 4.974 & 0.1231666786 & 99.90\% & 6.02\% \\
+        $2^{16}$ & 9.9584 & 2.1249 & 9.946 & 0.2105333726 & 99.88\% & 9.91\% \\
+        $2^{17}$ & 19.9248 & 2.3295 & 19.915 & 0.4084287079 & 99.95\% & 17.53\% \\
+        $2^{18}$ & 39.8551 & 2.7978 & 39.813 & 0.8491014223 & 99.89\% & 30.35\% \\
+        $2^{19}$ & 79.6193 & 3.6862 & 79.598 & 1.762778601 & 99.97\% & 47.82\% \\
+        $2^{20}$ & 159.2686 & 5.2535 & 159.206 & 3.312563647 & 99.96\% & 63.05\% \\
+        $2^{21}$ & 319.954 & 8.3561 & 319.872 & 6.420397461 & 99.97\% & 76.83\% \\
+        $2^{22}$ & 643.6107 & 14.6672 & 643.52 & 12.63506641 & 99.99\% & 86.15\% \\
+        $2^{23}$ & 1285.5971 & 27.0572 & 1285.427 & 25.09269219 & 99.99\% & 92.74\% \\
+        $2^{24}$ & 2575.9761 & 51.9975 & 2575.189 & 49.99425547 & 99.97\% & 96.15\%\ \\
+        $2^{25}$ & 5131.8888 & 101.7667 & 5129.64 & 99.69218125 & 99.96\% & 97.96\% \\
+        $2^{26}$ & 10291.6184 & 201.1397 & 10279.805 & 198.9340703 & 99.89\% & 98.90\% \\
+        $2^{27}$ & 20523.7316 & 400.7261 & 20505.744 & 398.3048813 & 99.91\% & 99.40\% \\
+        $2^{28}$ & 41207.0139 & 797.9594 & 41175.631 & 795.079025 & 99.92\% & 99.64\% \\
+    \end{tabular}
+    
+    \newpage
+    Frequency Domain CPU VS GPU
+    
+    \begin{tabular}{c|c|c|c|c|c|c}
+         Input Size & CPU Average Time (s) & GPU Average Time (s) & CPU Computation Time (s) & GPU Computation Time (s) & CPU Percentage & GPU Percentage \\
+$2^{4}$ & 0.066 & 1.9203 & 0.042 & 0.0059533184 & 63.64\% & 0.31\% \\ 
+$2^{5}$ & 0.054 & 1.8526 & 0.04 & 0.0065043104 & 74.07\% & 0.35\% \\ 
+$2^{6}$ & 0.054 & 1.8776 & 0.041 & 0.0065016384 & 75.93\% & 0.35\% \\ 
+$2^{7}$ & 0.054 & 1.862 & 0.041 & 0.00660904 & 75.93\% & 0.35\% \\ 
+$2^{8}$ & 0.053 & 1.8584 & 0.04 & 0.0068647776 & 75.47\% & 0.37\% \\ 
+$2^{9}$ & 0.053 & 1.8803 & 0.037 & 0.0065337216 & 69.81\% & 0.35\% \\ 
+$2^{10}$ & 0.052 & 1.8545 & 0.039 & 0.0070737536 & 75.00\% & 0.38\% \\ 
+$2^{11}$ & 0.055 & 1.8752 & 0.041 & 0.0069644192 & 74.55\% & 0.37\% \\ 
+$2^{12}$ & 0.052 & 1.8432 & 0.039 & 0.0071045568 & 75.00\% & 0.39\% \\ 
+$2^{13}$ & 0.054 & 1.8821 & 0.041 & 0.0071115136 & 75.93\% & 0.38\% \\ 
+$2^{14}$ & 0.054 & 1.8565 & 0.041 & 0.0070284512 & 75.93\% & 0.38\% \\ 
+$2^{15}$ & 0.058 & 1.8681 & 0.038 & 0.0070598912 & 65.52\% & 0.38\% \\ 
+$2^{16}$ & 0.11 & 1.8578 & 0.096 & 0.0084875296 & 87.27\% & 0.46\% \\ 
+$2^{17}$ & 0.117 & 1.8712 & 0.096 & 0.0082453888 & 82.05\% & 0.44\% \\ 
+$2^{18}$ & 0.109 & 1.8664 & 0.097 & 0.0084937664 & 88.99\% & 0.46\% \\ 
+$2^{19}$ & 0.112 & 1.8436 & 0.099 & 0.007940288 & 88.39\% & 0.43\% \\ 
+$2^{20}$ & 0.235 & 1.88 & 0.213 & 0.0110684832 & 90.64\% & 0.59\% \\ 
+$2^{21}$ & 0.483 & 1.8684 & 0.457 & 0.0172404769 & 94.62\% & 0.92\% \\ 
+$2^{22}$ & 0.986 & 1.9202 & 0.939 & 0.0289777443 & 95.23\% & 1.51\% \\ 
+$2^{23}$ & 2.164 & 1.9231 & 2.085 & 0.0517229828 & 96.35\% & 2.69\% \\ 
+$2^{24}$ & 5.75 & 2.0379 & 5.662 & 0.0972439111 & 98.47\% & 4.77\% \\ 
+$2^{25}$ & 12.416 & 2.1687 & 12.239 & 0.1793229475 & 98.57\% & 8.27\% \\ 
+$2^{26}$ & 26.812 & 2.4598 & 26.458 & 0.3332685455 & 98.68\% & 13.55\% \\ 
+$2^{27}$ & 56.285 & 3.0354 & 55.451 & 0.6327356995 & 98.52\% & 20.85\% \\ 
+$2^{28}$ & 116.734 & 4.2025 & 115.128 & 1.265475452 & 98.62\% & 30.11\% \\ 
+$2^{29}$ & 244.123 & 7.6584 & 241.199 & 2.070492627 & 98.80\% & 27.04\% \\ 
+$2^{30}$ & 487.672 & 11.4767 & 481.517 & 4.140983374 & 98.74\% & 36.08\% \\ 
+    \end{tabular}
+    
+\end{landscape}
+\newpage
+\end{center}
+I included compute time vs. clock time for a reason. As shown from the graphs, the clock time for \glspl{gpu} remains constant until about $2^{24}$ for frequency domain or until $2^{18}$ for time domain. That flat line around 1.5-2 seconds is the amount of overhead required for GPU computing. The computation time follows a curve similar in contour to the \gls{cpu}, but this overhead is incredibly important to consider when doing GPU acceleration. The input size needs to be big enough to make the overhead worth it. In the tables, I included the percentage ratio of compute time to clock time. It will most likely not reach 90\% unless the computation is massive, because there is a significant overhead in transferring data to/from the device. 
