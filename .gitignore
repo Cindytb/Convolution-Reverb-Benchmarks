@@ -12,8 +12,12 @@ Audio/audioData.out
 Audio/Ex.wav
 Audio/Ex96.wav
 GPU/obj/*
+GPU/bin/*
+GPU/libgpuconvolve.a
 Sequential/obj/*
 script-cims.exp
 script-hpc.exp
 moveStuff.sh
 parseTex.py
+.vscode
+.vscode/*

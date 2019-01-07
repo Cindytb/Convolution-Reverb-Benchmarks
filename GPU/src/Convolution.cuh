@@ -5,12 +5,14 @@
 #include <string.h>
 #include <math.h>
 #include <locale.h>
+#include <stdbool.h>
 
+#include "Universal.h"
 #include "thrustOps.cuh"
 #include "FFT.cuh"
 #include "MemManage.cuh"
 #include "Audio.cuh"
-#include "Universal.h"
+#include "Main.cuh"
 // includes, project
 #include <cuda_runtime.h>
 #include <cufft.h>
@@ -19,12 +21,18 @@
 #include <helper_functions.h>
 #include <helper_cuda.h>
 
-float * TDconvolution(float ** d_ibuf, float ** d_rbuf, long long old_size, long long written_size);
-float * convolution(float ** d_ibuf, float ** d_rbuf, long long new_size, long long old_size, long long written_size);
-float * blockConvolution(float ** d_ibuf, float ** d_rbuf, long long old_size, long long written_size, long long audioBlockSize);
-//float * timeDomainConvolutionExperimental(float ** d_ibuf, float ** d_rbuf, long long old_size, long long written_size);
-float *multiGPUFFT(float *ibuf, float *rbuf, long long iFrames, long long rFrames);
-
+float * TDconvolution(passable *p);
+float * convolution(passable *p);
+float * blockConvolution(passable *p);
+float *multiGPUFFTDebug(passable *p);
+void mismatchedConvolve(passable *p);
+void convolve(float *d_ibuf, float *d_rbuf, long long paddedSize);
+/*Assumes that d_buf contains paddedSize * 2 elements. 
+Input is in first half, filter is in second half, and both are padded*/ 
+void convolveBatched(float *d_buf, long long paddedSize);
+void overlapAdd(float *d_ibuf, cufftComplex *d_rbuf, long long iFrames, long long M, 
+	long long blockSize, int blockNum, cufftHandle plan, cufftHandle outplan);
+void findBlockSize(long long iFrames, int M, size_t *blockSize, int *blockNum);
 // cuFFT API errors
 static const char *_cudaGetErrorEnum(cufftResult error)
 {

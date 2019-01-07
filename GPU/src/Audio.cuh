@@ -3,6 +3,8 @@
 #include <locale.h>
 #include <cmath>
 #include <string.h>
+#include <stdio.h> 
+#include <math.h> 
 #include <sndfile.hh>
 #include <cuda_runtime.h>
 #include <helper_functions.h>
@@ -10,12 +12,16 @@
 #include <cuda_profiler_api.h>
 #include "MemManage.cuh"
 
-#include "nvToolsExt.h"
+#include "Universal.h"
+#include "Main.cuh"
 
-void errorCheck(int iCh, int iSR, int rSR);
-
-long long getAudioBlockSize();
-void readFile(const char *iname, const char *rname, 
-	int *iCh, int *iSR, long long *iframes, int *rCh, int *rSR,  long long *rframes, 
-	float **d_ibuf, float **d_rbuf, long long *new_size, bool *blockProcessingOn, bool timeDomain);
+void printArr(float *buf, int len);
+void errorCheckGPU(int iCh, int rCh, int iSR, int rSR, passable *p);
+__host__ __device__ void deInterleave(float *buf, long long samples);
+void interleave(float *buf, long long frames);
+long long getAudioBlockSize(passable *p);
+void readFileExperimentalDebug(const char *iname, const char *rname,
+    int *SR, bool *blockProcessingOn, bool timeDomain, passable *p);
+void readFileExperimental(const char *iname, const char *rname,
+    int *SR, bool *blockProcessingOn, bool timeDomain, passable *p);
 void writeFile(const char * name, float * buf, long long size, int fs, int ch);

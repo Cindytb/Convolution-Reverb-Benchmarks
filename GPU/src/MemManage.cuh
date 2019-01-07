@@ -10,5 +10,4 @@
 #include <cuda_profiler_api.h>
 __global__ void FillWithZeros(float *buf, long long start, long long size);
 void printSize();
-size_t getSize();
 size_t getFreeSize();
