@@ -92,6 +92,8 @@ void fillBuffers(int numDevs, cudaStream_t *stream, bool sg, multi_gpu_struct *m
 		checkCudaErrors(cudaMemcpyAsync(mg[i].d_rbuf, rbuf, rFrames * sizeof(float),
 			cudaMemcpyHostToDevice, stream[i * 4 + 3]));
 	}
+	checkCudaErrors(cudaFreeHost(ibuf));
+	checkCudaErrors(cudaFreeHost(rbuf));
 }
 float * overlapAddMultiGPU(multi_gpu_struct *mg, passable *p, int numDevs, cudaStream_t *stream, int singleDev) {
 	int M = p->reverb->frames - 1;
@@ -280,11 +282,10 @@ float doubleBlockMethodOne(passable *p, int numDevs, cudaStream_t *stream, multi
 
 	/*Filling in data*/
 	Print("Filling in data\n");
-	size_t outChunk = (iFrames + numDevs - 1) / numDevs + M;
-	size_t blockSize = pow(2, ceil(log2((double)outChunk)));
+	size_t outChunk = (iFrames + numDevs - 1) / numDevs;
 	for (int i = 0; i < numDevs; i++) {
-		mg[i].offset = (iFrames + numDevs - 1) / numDevs * i;
-		mg[i].size = i == numDevs - 1 ? iFrames - mg[i].offset : (iFrames + numDevs - 1) / numDevs;
+		mg[i].offset = outChunk * i;
+		mg[i].size = i == numDevs - 1 ? iFrames - mg[i].offset : outChunk;
 	}
 
 	/*Allocate memory*/
@@ -322,12 +323,12 @@ float doubleBlockMethodOne(passable *p, int numDevs, cudaStream_t *stream, multi
 		Print("Creating FFT plans\n");
 		cufftHandle plan;
 		CHECK_CUFFT_ERRORS(cufftCreate(&plan));
-		CHECK_CUFFT_ERRORS(cufftPlan1d(&plan, blockSize, CUFFT_R2C, 1));
+		CHECK_CUFFT_ERRORS(cufftPlan1d(&plan, mg[i].blockSize, CUFFT_R2C, 1));
 
 		/*Plans*/
 		cufftHandle outplan;
 		CHECK_CUFFT_ERRORS(cufftCreate(&outplan));
-		CHECK_CUFFT_ERRORS(cufftPlan1d(&outplan, blockSize, CUFFT_C2R, 1));
+		CHECK_CUFFT_ERRORS(cufftPlan1d(&outplan, mg[i].blockSize, CUFFT_C2R, 1));
 
 #if defined WIN64 || CB == 0
 #else
@@ -411,14 +412,16 @@ float doubleBlockMethodTwo(passable *p, int numDevs, cudaStream_t *stream, multi
 			CUFFT_CB_LD_COMPLEX, (void **)&(mg[i].d_rbuf)));
 #endif	
 
-	/*Transform Filter*/
-	Print("Transforming filter\n");
-	CHECK_CUFFT_ERRORS(cufftExecR2C(plan, (cufftReal *)mg[i].d_rbuf, (cufftComplex*)mg[i].d_rbuf));
+		/*Transform Filter*/
+		Print("Transforming filter\n");
+		CHECK_CUFFT_ERRORS(cufftExecR2C(plan, (cufftReal *)mg[i].d_rbuf, (cufftComplex*)mg[i].d_rbuf));
 
-	/*Convolving*/
-	overlapAdd(mg[i].d_ibuf, (cufftComplex*)mg[i].d_rbuf, mg[i].size, M, mg[i].blockSize, mg[i].numBlocks, plan, outplan);
-	CHECK_CUFFT_ERRORS(cufftDestroy(plan));
-	CHECK_CUFFT_ERRORS(cufftDestroy(outplan));
+		/*Convolving*/
+		overlapAdd(mg[i].d_ibuf, (cufftComplex*)mg[i].d_rbuf, mg[i].size, M, mg[i].blockSize, mg[i].numBlocks, plan, outplan);
+		CHECK_CUFFT_ERRORS(cufftDestroy(plan));
+		CHECK_CUFFT_ERRORS(cufftDestroy(outplan));
+
+		checkCudaErrors(cudaFree(mg[i].d_rbuf));
 	}
 	return minmax1;
 }
@@ -433,7 +436,7 @@ int doubleBlockTest(int numDevs, size_t *freeSizes, multi_gpu_struct *mg, passab
 	size_t max = 0;
 	for (int i = 0; i < numDevs; i++) {
 		/*Theoretically should be 4. Dividing by 8 to be conservative*/
-		totalAllowedFrames += freeSizes[i] / 4 ;
+		totalAllowedFrames += freeSizes[i] / 4 / 2;
 		totalAllowedFrames -= rFrames;
 
 		/*Finding device with most memory*/
@@ -566,7 +569,7 @@ float *multiGPUFFTDebug(passable *p) {
 	size_t totalAllowedFrames = 0;
 	for (int i = 0; i < numDevs; i++) {
 		/*Max number of elements that's a power of 2*/
-		size_t freeAmount = pow(2, floor(log2((double)(freeSizes[i] / 4 / 32))));
+		size_t freeAmount = pow(2, floor(log2((double)(freeSizes[i] / 4 / 2))));
 		totalAllowedFrames += freeAmount - M;
 	}
 
@@ -647,13 +650,13 @@ float *multiGPUFFTDebug(passable *p) {
 	Print("Scaling and transferring output\n");
 	scaling(obuf, d_obuf, scale, oFrames);
 
-	free(mg);
 	cudaEventRecord(stop);
 	cudaEventSynchronize(stop);
 	float milliseconds = 0;
 	cudaEventElapsedTime(&milliseconds, start, stop);
 	fprintf(stderr, "Time for GPU convolution: %f ms\n", milliseconds);
-
+	
+	free(mg);
 	free(freeSizes);
 	free(stream);
 

@@ -1,6 +1,5 @@
 #include "Main.cuh"
 void drawGraph(float * buf, long long size, int SR, const char * name){
-	Print("Taking HELLA LONG to plot the output\n");
 	int NUM_COMMANDS = 2;
 	const char * commandsForGnuplot[] = {"set terminal pngcairo size 1366,768 ",
 		"set title \"Good Luck.\""};
@@ -78,10 +77,6 @@ float *gpuEntry(std::string input, std::string reverb, std::string out, bool tim
 	}
 	if (obuf != NULL){
 		if(p->type != mono_mono){
-			// drawGraph(obuf, oFrames, SR, "out1.png");
-			// drawGraph(obuf + oFrames, oFrames, SR, "out2.png");
-			// writeFile("out1.wav", obuf, oFrames, SR, 1);
-			// writeFile("out2.wav", obuf + p->paddedSize, oFrames, SR, 1);
 			Print("Interleaving the file\n");
 
 			/*Interleaving function in place doesn't work right now
@@ -100,13 +95,16 @@ float *gpuEntry(std::string input, std::string reverb, std::string out, bool tim
 			}
 			free(scrap);
 		}
-		//drawGraph(obuf, oFrames * oCh, SR, "out3.png");
+		
 		if (out.c_str()[0] != ' '){
-			
-				fprintf(stderr, "Writing output file %s\n", out.c_str());
-				writeFile(out.c_str(), obuf, oFrames, SR, oCh);
+			fprintf(stderr, "Writing output file %s\n", out.c_str());
+			writeFile(out.c_str(), obuf, oFrames, SR, oCh);
 		}
 	}
+
+	free(p->input);
+	free(p->reverb);
+	free(p);
 	return obuf;
 }
 

@@ -39,6 +39,7 @@ int main(int argc, char **argv){
 		fprintf(stderr, "ERROR\n");
 		return 100;
 	}
-    checkCudaErrors(cudaFreeHost(obuf));
+	checkCudaErrors(cudaFreeHost(obuf));
+	cudaDeviceReset();
     return 0;
 }

@@ -21,10 +21,10 @@ mkdir -p $BINDIR
 mkdir -p $OBJDIR
 
 if [[ $host = "cims" ]]; then
-    DIRS="-L/home/ctb335/Capstone/GPU"
+    DIRS="-L$WD"
 
     INC="-I/home/ctb335/libsndfile/include \
-    -I/home/ctb335/cuda/inc
+    -I$WD/src/common/inc
     "
     ARCH="-gencode arch=compute_30,code=sm_30 -gencode arch=compute_35,code=sm_35 \
     -gencode arch=compute_50,code=sm_50 \
@@ -37,11 +37,11 @@ if [[ $host = "cims" ]]; then
 elif [[ $host = "prince" ]]; then
     DIRS="-L/share/apps/libsndfile/1.0.28/intel/lib \
     -L/share/apps/cuda/9.2.88/lib64
-    -L/home/ctb335/Capstone/GPU
+    -L$WD
     "
     INC="-I/share/apps/libsndfile/1.0.28/intel/include \
     -I/share/apps/cuda/9.2.88/include \
-    -I/share/apps/cuda/9.2.88/samples/common/inc 
+    -I$WD/src/common/inc
     "
     ARCH="-gencode arch=compute_30,code=sm_30 -gencode arch=compute_35,code=sm_35 \
     -gencode arch=compute_50,code=sm_50 \
