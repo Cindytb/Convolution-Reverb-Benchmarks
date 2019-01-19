@@ -29,11 +29,11 @@ void printMe(passable *p){
 	fprintf(stderr, "Address of p->reverb->d_buf: %p\n", p->reverb->d_buf);
 	fprintf(stderr, "Address of p->input->buf: %p\n", p->input->buf);
 	fprintf(stderr, "Address of p->reverb->buf: %p\n", p->reverb->buf);
-	fprintf(stderr, "iFrames: %'lli\n", p->input->frames);
-	fprintf(stderr, "rFrames: %'lli\n", p->reverb->frames);
+	fprintf(stderr, "iFrames: %'lu\n", p->input->frames);
+	fprintf(stderr, "rFrames: %'lu\n", p->reverb->frames);
 	fprintf(stderr, "paddedSize: %'lli\n\n", p->paddedSize);
 }
-__global__ void doNothing(){}
+
 
 float *gpuEntry(std::string input, std::string reverb, std::string out, bool timeDomain) {
 	setlocale(LC_NUMERIC, "");
@@ -44,7 +44,6 @@ float *gpuEntry(std::string input, std::string reverb, std::string out, bool tim
 	int oCh = 1;
 	int SR = 0;
 	bool blockProcessingOn = false;
-	doNothing<<<1, 1>>>();
 	p = (passable*)malloc(sizeof(struct passable));
 	p->input = (audio_container*)malloc(sizeof(struct audio_container));
 	p->reverb = (audio_container*)malloc(sizeof(struct audio_container));

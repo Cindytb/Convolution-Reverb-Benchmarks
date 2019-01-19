@@ -1,4 +1,5 @@
 #include "Audio.cuh"
+__global__ void doNothing(){}
 /*Debugging print function*/
 void printArr(float *buf, int len){
 	for(int i = 0; i < len - 1; i++){
@@ -93,11 +94,11 @@ void readFileExperimentalDebug(const char *iname, const char *rname,
 	int *SR, bool *blockProcessingOn, bool timeDomain, passable *p) {
 	setlocale(LC_NUMERIC, "");
 	int iSR, rSR;
-	long long totalSize;
+	size_t totalSize;
+	size_t rFrames, iFrames;
 	cudaStream_t streams[8];
 	float *ibuf, *rbuf;
 	float *d_ibuf, *d_rbuf;
-	long long rFrames, iFrames;
 	int rCh, iCh;
 	SF_INFO i_info, r_info;
 	SNDFILE *i_sndfile, *r_sndfile;
@@ -106,7 +107,9 @@ void readFileExperimentalDebug(const char *iname, const char *rname,
 
 	memset(&i_info, 0, sizeof(i_info));
 	memset(&r_info, 0, sizeof(r_info));
-
+	
+	doNothing<<<1, 1>>>();
+	
 	/*Open input*/
 	i_sndfile = sf_open(iname, SFM_READ, &i_info);
 	if (i_sndfile == NULL) {
@@ -123,13 +126,13 @@ void readFileExperimentalDebug(const char *iname, const char *rname,
 	/*Store input & reverb metadata*/
 	iSR = i_info.samplerate;
 	iFrames = i_info.frames;
-	p->input->frames = iFrames;
+	p->input->frames = (size_t) iFrames;
 	iCh = i_info.channels;
 	p->input->channels = iCh;
 
 	rSR = r_info.samplerate;
 	rFrames = r_info.frames;
-	p->reverb->frames = rFrames;
+	p->reverb->frames = (size_t) rFrames;
 	rCh = r_info.channels;
 	p->reverb->channels = rCh;
 
@@ -224,7 +227,7 @@ void readFileExperimentalDebug(const char *iname, const char *rname,
 	p->input->buf = ibuf;
 	p->reverb->buf = rbuf;
 	/*Create Streams*/
-	for(int i = 0; i < sizeof(streams)/sizeof(cudaStream_t); i++){
+	for(int i = 0; i < (int) (sizeof(streams)/sizeof(cudaStream_t)); i++){
 	 	checkCudaErrors(cudaStreamCreate(&streams[i]));
 	}
 
@@ -244,7 +247,7 @@ void readFileExperimentalDebug(const char *iname, const char *rname,
 		Print("Padding reverb\n");
 		/*Pad reverb*/
 		numBlocks = (p->paddedSize - rFrames - 1) / numThreads;
-		FillWithZeros<<<numBlocks, numThreads, 0, streams[0]>>>(d_rbuf, rFrames, p->paddedSize + 2);
+		FillWithZeros <<< numBlocks, numThreads, 0, streams[0]>>>(d_rbuf, rFrames, p->paddedSize + 2);
 		
 		
 		/*Pad the reverb if stereo*/
@@ -269,7 +272,7 @@ void readFileExperimentalDebug(const char *iname, const char *rname,
 	
 	/*Reading in input*/
 	Print("Reading in input\n");
-	if(sf_read_float(i_sndfile, ibuf, totalSize) != totalSize){
+	if(sf_read_float(i_sndfile, ibuf, totalSize) != (sf_count_t) totalSize){
 		Print("ERROR: Reading input file failed\n");
 	}
 
@@ -289,7 +292,7 @@ void readFileExperimentalDebug(const char *iname, const char *rname,
 
 	Print("Reading in reverb\n");
 	/*Read in all reverb audio data*/
-	if (sf_read_float(r_sndfile, rbuf, rFrames * rCh) != rFrames * rCh)
+	if (sf_read_float(r_sndfile, rbuf, rFrames * rCh) != (sf_count_t)  (rFrames * rCh))
 		fprintf(stderr, "ERROR: Reading reverb file failed\n");
 
 	/*De-interleave reverb if stereo*/
@@ -308,7 +311,7 @@ void readFileExperimentalDebug(const char *iname, const char *rname,
 		}
 	}
 	
-	for(int i = 0; i < sizeof(streams)/sizeof(cudaStream_t); i++){
+	for(int i = 0; i < (int) (sizeof(streams)/sizeof(cudaStream_t)); i++){
 		checkCudaErrors(cudaStreamSynchronize(streams[i]));
 		checkCudaErrors(cudaStreamDestroy(streams[i]));
 	}	

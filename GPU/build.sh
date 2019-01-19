@@ -3,7 +3,7 @@
 host=$(hostname)
 if [[ "$host" = *"cims"* ]]; then 
     host="cims"
-elif [[ "$host" = *"prince"* ]] ; then 
+elif [[ "$host" = *"log"* ]] ; then 
     host="prince"
 fi
 
@@ -36,7 +36,8 @@ if [[ $host = "cims" ]]; then
     
 elif [[ $host = "prince" ]]; then
     DIRS="-L/share/apps/libsndfile/1.0.28/intel/lib \
-    -L/share/apps/cuda/9.2.88/lib64
+    -L/share/apps/cuda/9.2.88/lib64 \
+    -L/share/apps/gromacs/5.1.4/openmpi/intel/lib64 \
     -L$WD
     "
     INC="-I/share/apps/libsndfile/1.0.28/intel/include \
@@ -73,14 +74,14 @@ if [[ $1 == "clean" ]]; then
         fi
     done
 fi
-
-
+openMPFlags=""
+#openMPFlags="-DopenMP --compiler-options -fopenmp"
 
 #Compiling .cu files
 for i in "${CUSRC[@]}"; do
     if [[ "${SRCDIR}/${i}.cu" -nt "${OBJDIR}/${i}.o" ]] || [[ "${SRCDIR}/${i}.cuh" -nt "${OBJDIR}/${i}.o" ]]; then
         echo Compiling $SRCDIR/$i
-        nvcc -ccbin=$CC $INC $DIRS -dc $ARCH $FLAGS -o $OBJDIR/${i}.o -c $SRCDIR/${i}.cu $LIBS 
+        nvcc -ccbin=$CC --compiler-options -Wall $INC $DIRS $openMPFlags -dc $ARCH $FLAGS -o $OBJDIR/${i}.o -c $SRCDIR/${i}.cu $LIBS 
     fi
 done
 for i in "${SRC[@]}"; do

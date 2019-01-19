@@ -3,7 +3,7 @@
 host=$(hostname)
 if [[ "$host" = *"cims"* ]]; then 
     host="cims"
-elif [[ "$host" = *"prince"* ]] ; then 
+elif [[ "$host" = *"log"* ]] ; then 
     host="prince"
 fi
 

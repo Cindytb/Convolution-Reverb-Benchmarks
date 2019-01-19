@@ -4,8 +4,8 @@ extern __device__ cufftCallbackLoadC myOwnCallbackPtr;
 void printMGInfo(multi_gpu_struct m){
 	fprintf(stderr, "d_ibuf    : %p\n", m.d_ibuf);
 	fprintf(stderr, "d_rbuf    : %p\n", m.d_rbuf);
-	fprintf(stderr, "size      : %'lli\n", m.size);
-	fprintf(stderr, "L         : %'lli\n", m.L);
+	fprintf(stderr, "size      : %'lu\n", m.size);
+	fprintf(stderr, "L         : %'li\n", m.L);
 	fprintf(stderr, "offset    : %'lli\n", m.offset);
 	fprintf(stderr, "blockSize : %'lu\n", m.blockSize);
 	fprintf(stderr, "numBlocks : %i\n", m.numBlocks);
@@ -135,26 +135,13 @@ float * overlapAddMultiGPU(multi_gpu_struct *mg, passable *p, int numDevs, cudaS
 	checkCudaErrors(cudaFree(d_scratchSpace));
 	return d_obuf;
 }
-/*
-typedef struct multi_gpu_struct{
-	float *d_ibuf;
-	float *d_rbuf;
-	long long size;
-	size_t blockSize;
-	long long L;
-	long long offset;
-	int numBlocks;
-} multi_gpu_struct;
-*/
-float singleBlockMethodOne(passable *p, int numDevs, cudaStream_t *stream, multi_gpu_struct *mg) {
-	long long iFrames = p->input->frames;
-	long long rFrames = p->reverb->frames;
-	long long M = rFrames - 1;
 
+/*Fills in how the signal is divided to each GPU by method 1*/
+void fillingInDataSG1(multi_gpu_struct *mg, long long iFrames, int numDevs){
 	/*Filling in data*/
 	Print("Filling in data\n");
-	size_t inChunk = (iFrames + numDevs - 1) / numDevs;
-	size_t blockSize = pow(2, ceil(log2((double)(inChunk + M))));
+	long long inChunk = (iFrames + numDevs - 1) / numDevs;
+	size_t blockSize = (size_t) pow(2, ceil(log2((double)(inChunk + mg[0].M))));
 	for (int i = 0; i < numDevs; i++) {
 		mg[i].offset = inChunk * i;
 		mg[i].blockSize = blockSize;
@@ -168,54 +155,18 @@ float singleBlockMethodOne(passable *p, int numDevs, cudaStream_t *stream, multi
 			mg[i].size = mg[i].L;
 		}
 	}
-
-	/*Allocate memory*/
-	Print("Allocating memory\n");
-	for (int i = 0; i < numDevs; i++) {
-		cudaSetDevice(i);
-		checkCudaErrors(cudaMalloc(&(mg[i].d_ibuf), (blockSize + 2 ) * sizeof(cufftComplex)));
-		mg[i].d_rbuf = mg[i].d_ibuf + blockSize + 2;
-	}
-	for(int i = 0; i < numDevs; i++){
-		printMGInfo(mg[i]);
-	}
-	
-	fillBuffers(numDevs, stream, true, mg, p);
-
-	/*Finding peak*/
-	float minmax1 = 0;
-	Print("Finding input peak\n");
-	for (int i = 0; i < numDevs; i++) {
-		checkCudaErrors(cudaSetDevice(i));
-		checkCudaErrors(cudaStreamSynchronize(stream[i * 4]));
-		float minmax = DExtrema(mg[i].d_ibuf, mg[i].size);
-		if (minmax > minmax1)
-			minmax1 = minmax;
-	}
-
-	/*Convolving*/
-	Print("Convolving\n");
-	for (int i = 0; i < numDevs; i++) {
-		cudaSetDevice(i);
-		convolveBatched(mg[i].d_ibuf, mg[i].blockSize);
-	}
-	return minmax1;
-
 }
-float singleBlockMethodTwo(passable *p, int numDevs, size_t *freeSizes, cudaStream_t *stream, multi_gpu_struct *mg) {
-	long long iFrames = p->input->frames;
-	long long rFrames = p->reverb->frames;
-	long long M = rFrames - 1;
-
+/*Fills in how the signal is divided to each GPU by method 2*/
+void fillingInDataSG2(multi_gpu_struct *mg, size_t *freeSizes, long long iFrames, int numDevs, long long M){
 	/*Filling in data*/
 	Print("Filling in data\n");
-	long long framecount = 0;
+	size_t framecount = 0;
 	for (int i = 0; i < numDevs; i++) {
 
 		mg[i].M = (int) M;
 		mg[i].numBlocks = 0;
 		mg[i].L = 0;
-		if (framecount == iFrames) {
+		if (framecount == (size_t) iFrames) {
 			mg[i].size = 0;
 			mg[i].offset = -1;
 			mg[i].blockSize = 0;
@@ -234,11 +185,66 @@ float singleBlockMethodTwo(passable *p, int numDevs, size_t *freeSizes, cudaStre
 		chunk -= M;
 
 		mg[i].offset = framecount;
-		mg[i].size = chunk < (iFrames - framecount) ? (long long) chunk : (long long) (iFrames - framecount);
+		mg[i].size = chunk < ( (size_t) iFrames - framecount) ? chunk : (size_t) iFrames - framecount;
 		mg[i].blockSize = pow(2, ceil(log2((double)mg[i].size)));
 		framecount += mg[i].size;
 	}
+}
+float singleBlock(passable *p, int numDevs, size_t *freeSizes, cudaStream_t *stream, multi_gpu_struct *mg, int sg) {
+	long long iFrames = p->input->frames;
+	long long rFrames = p->reverb->frames;
 
+	if(sg == 1){
+		fillingInDataSG1(mg, iFrames, numDevs);
+	}
+	else{
+		fillingInDataSG2(mg, freeSizes, iFrames, numDevs, rFrames - 1);
+	}
+	
+	/*Allocate memory*/
+	Print("Allocating memory\n");
+	for (int i = 0; i < numDevs; i++) {
+		if (mg[i].size == 0) break;
+		cudaSetDevice(i);
+		checkCudaErrors(cudaMalloc(&(mg[i].d_ibuf), (mg[i].blockSize / 2 + 1) * 2 * sizeof(cufftComplex)));
+		mg[i].d_rbuf = mg[i].d_ibuf + mg[i].blockSize + 2;
+	}
+
+	for(int i = 0; i < numDevs; i++){
+		printMGInfo(mg[i]);
+	}
+	
+	fillBuffers(numDevs, stream, true, mg, p);
+
+	/*Finding peak*/
+	float minmax1 = 0;
+	Print("Finding input peak\n");
+	for (int i = 0; i < numDevs; i++) {
+		if (mg[i].size == 0) break;
+		checkCudaErrors(cudaSetDevice(i));
+		checkCudaErrors(cudaStreamSynchronize(stream[i * 4]));
+		float minmax = DExtrema(mg[i].d_ibuf, mg[i].size);
+		if (minmax > minmax1)
+			minmax1 = minmax;
+	}
+
+	/*Convolving*/
+	Print("Convolving\n");
+	#ifdef openMP
+	#pragma omp parallel for
+	#endif
+	for (int i = 0; i < numDevs; i++) {
+		bool go = true;
+		if (mg[i].size == 0) go = false;
+		if(go){
+			cudaSetDevice(i);
+			convolveBatched(mg[i].d_ibuf, mg[i].blockSize);
+		}
+	}
+
+	return minmax1;
+}
+float singleBlockMethodTwo(passable *p, int numDevs, size_t *freeSizes, cudaStream_t *stream, multi_gpu_struct *mg) {
 	/*Allocate memory*/
 	Print("Allocating memory\n");
 	for (int i = 0; i < numDevs; i++) {
@@ -275,6 +281,67 @@ float singleBlockMethodTwo(passable *p, int numDevs, size_t *freeSizes, cudaStre
 	}
 	return minmax1;
 }
+float doubleBlockConvolve(multi_gpu_struct *mg, int numDevs, cudaStream_t *stream, passable *p){
+		
+	fillBuffers(numDevs, stream, false, mg, p);
+
+	/*Finding peak*/
+	float minmax1 = 0;
+	Print("Finding input peak\n");
+	for (int i = 0; i < numDevs; i++) {
+		if (mg[i].size == 0) break;
+		checkCudaErrors(cudaSetDevice(i));
+		float minmax = DExtrema(mg[i].d_ibuf, mg[i].size);
+		if (minmax > minmax1)
+			minmax1 = minmax;
+	}
+
+	/*Convolving*/
+	Print("Convolving\n");
+	#ifdef openMP
+	#pragma omp parallel for
+	#endif
+	for (int i = 0; i < numDevs; i++) {
+		bool go = true;
+		if (mg[i].size == 0) go = false;
+		if(go){
+			cudaSetDevice(i);
+			/*Create cuFFT plan*/
+			Print("Creating FFT plans\n");
+			cufftHandle plan;
+			CHECK_CUFFT_ERRORS(cufftCreate(&plan));
+			CHECK_CUFFT_ERRORS(cufftPlan1d(&plan, mg[i].blockSize, CUFFT_R2C, 1));
+
+			/*Plans*/
+			cufftHandle outplan;
+			CHECK_CUFFT_ERRORS(cufftCreate(&outplan));
+			CHECK_CUFFT_ERRORS(cufftPlan1d(&outplan, mg[i].blockSize, CUFFT_C2R, 1));
+
+#if defined WIN64 || CB == 0
+#else
+			/*Create host pointer to CB Function*/
+			cufftCallbackLoadC hostCopyOfCallbackPtr;
+			checkCudaErrors(cudaMemcpyFromSymbol(&hostCopyOfCallbackPtr, myOwnCallbackPtr, sizeof(hostCopyOfCallbackPtr)));
+
+			/*Associate the load callback with the plan*/
+			CHECK_CUFFT_ERRORS(cufftXtSetCallback(outplan, (void **)&hostCopyOfCallbackPtr,
+				CUFFT_CB_LD_COMPLEX, (void **)&(mg[i].d_rbuf)));
+#endif	
+
+			/*Transform Filter*/
+			Print("Transforming filter\n");
+			CHECK_CUFFT_ERRORS(cufftExecR2C(plan, (cufftReal *)mg[i].d_rbuf, (cufftComplex*)mg[i].d_rbuf));
+
+			/*Convolving*/
+			overlapAdd(mg[i].d_ibuf, (cufftComplex*)mg[i].d_rbuf, mg[i].size, mg[i].M, mg[i].blockSize, mg[i].numBlocks, plan, outplan);
+			CHECK_CUFFT_ERRORS(cufftDestroy(plan));
+			CHECK_CUFFT_ERRORS(cufftDestroy(outplan));
+
+			checkCudaErrors(cudaFree(mg[i].d_rbuf));
+		}
+	}
+	return minmax1;
+}
 float doubleBlockMethodOne(passable *p, int numDevs, cudaStream_t *stream, multi_gpu_struct *mg) {
 	long long iFrames = p->input->frames;
 	long long rFrames = p->reverb->frames;
@@ -302,65 +369,19 @@ float doubleBlockMethodOne(passable *p, int numDevs, cudaStream_t *stream, multi
 		printMGInfo(mg[i]);
 	}
 	
-	fillBuffers(numDevs, stream, false, mg, p);
-
-
-	/*Finding peak*/
-	float minmax1 = 0;
-	Print("Finding input peak\n");
-	for (int i = 0; i < numDevs; i++) {
-		checkCudaErrors(cudaSetDevice(i));
-		float minmax = DExtrema(mg[i].d_ibuf, mg[i].size);
-		if (minmax > minmax1)
-			minmax1 = minmax;
-	}
-
-	/*Convolving*/
-	Print("Convolving\n");
-	for (int i = 0; i < numDevs; i++) {
-		cudaSetDevice(i);
-		/*Create cuFFT plan*/
-		Print("Creating FFT plans\n");
-		cufftHandle plan;
-		CHECK_CUFFT_ERRORS(cufftCreate(&plan));
-		CHECK_CUFFT_ERRORS(cufftPlan1d(&plan, mg[i].blockSize, CUFFT_R2C, 1));
-
-		/*Plans*/
-		cufftHandle outplan;
-		CHECK_CUFFT_ERRORS(cufftCreate(&outplan));
-		CHECK_CUFFT_ERRORS(cufftPlan1d(&outplan, mg[i].blockSize, CUFFT_C2R, 1));
-
-#if defined WIN64 || CB == 0
-#else
-		/*Create host pointer to CB Function*/
-		cufftCallbackLoadC hostCopyOfCallbackPtr;
-		checkCudaErrors(cudaMemcpyFromSymbol(&hostCopyOfCallbackPtr, myOwnCallbackPtr, sizeof(hostCopyOfCallbackPtr)));
-
-		/*Associate the load callback with the plan*/
-		CHECK_CUFFT_ERRORS(cufftXtSetCallback(outplan, (void **)&hostCopyOfCallbackPtr,
-			CUFFT_CB_LD_COMPLEX, (void **)&(mg[i].d_rbuf)));
-#endif	
-
-		/*Transform Filter*/
-		Print("Transforming filter\n");
-		CHECK_CUFFT_ERRORS(cufftExecR2C(plan, (cufftReal *)mg[i].d_rbuf, (cufftComplex*)mg[i].d_rbuf));
-
-		/*Convolving*/
-		overlapAdd(mg[i].d_ibuf, (cufftComplex*)mg[i].d_rbuf, mg[i].size, M, mg[i].blockSize, mg[i].numBlocks, plan, outplan);
-
-		CHECK_CUFFT_ERRORS(cufftDestroy(plan));
-		CHECK_CUFFT_ERRORS(cufftDestroy(outplan));
-	}
-	return minmax1;
+	return doubleBlockConvolve(mg, numDevs, stream, p);
+	
+	
 }
 float doubleBlockMethodTwo(passable *p, int numDevs, cudaStream_t *stream, multi_gpu_struct *mg) {
-	long long rFrames = p->reverb->frames;
+	size_t rFrames = p->reverb->frames;
 	long long M = rFrames - 1;
 
 	/*Allocate memory*/
 	Print("Allocating memory\n");
 	for (int i = 0; i < numDevs; i++) {
 		if(mg[i].size == 0) {
+			mg[i].blockSize = 0;
 			break;
 		}
 		cudaSetDevice(i);
@@ -371,82 +392,75 @@ float doubleBlockMethodTwo(passable *p, int numDevs, cudaStream_t *stream, multi
 	for(int i = 0; i < numDevs; i++){
 		printMGInfo(mg[i]);
 	}
-	
-	fillBuffers(numDevs, stream, false, mg, p);
+	return doubleBlockConvolve(mg, numDevs, stream, p);
+}
+bool checkDistribution(multi_gpu_struct *mg, int numDevs, size_t iFrames, size_t *freeSizes){
+	size_t framecount = 0;
+	for(int i = 0; i < numDevs; i++){
+		if(framecount >=  iFrames){
+			
+			mg[i].d_ibuf = NULL;
+			mg[i].d_rbuf = NULL;
+			mg[i].size = 0;
 
-	/*Finding peak*/
-	float minmax1 = 0;
-	Print("Finding input peak\n");
-	for (int i = 0; i < numDevs; i++) {
-		if (mg[i].size == 0) break;
+			mg[i].offset = -1;
+			mg[i].L = 0;
+			mg[i].numBlocks = 0;
+			continue;
+		}
+		size_t actualFreeSize = freeSizes[i] / 4U / 2U / 8U;
+		actualFreeSize -= mg[i].blockSize * 2U;
+		/*Estimated amount of allocatable floats to the power of 2*/
+		size_t inBlockSize = pow(2, ceil(log2((double)actualFreeSize)));
+		
+		/*Number of elements in input - M*/
+		inBlockSize -= mg[i].M;
+
+		mg[i].offset = (long long) framecount;
+		mg[i].size = inBlockSize < iFrames - framecount ? inBlockSize : iFrames - framecount;
+		mg[i].L = mg[i].blockSize - mg[i].M;
+		mg[i].numBlocks = mg[i].size / mg[i].L;
+		framecount += mg[i].size;
+	}
+	if(framecount < iFrames){
+		return false;
+	}
+	for(int i = 0; i < numDevs; i++){
+		if(mg[i].size == 0)
+			break;
 		checkCudaErrors(cudaSetDevice(i));
-		float minmax = DExtrema(mg[i].d_ibuf, mg[i].size);
-		if (minmax > minmax1)
-			minmax1 = minmax;
+		size_t workspace;
+		CHECK_CUFFT_ERRORS(cufftEstimate1d(mg[i].blockSize, CUFFT_R2C, 2, &workspace));
+		if(freeSizes[i] < workspace + (mg[i].blockSize / 2 + 1) * 8UL * 2UL){
+			return false;
+		}
+		
 	}
+	return true;
 
-	/*Convolving*/
-	Print("Convolving\n");
-	for (int i = 0; i < numDevs; i++) {
-		if (mg[i].size == 0) break;
-		cudaSetDevice(i);
-		/*Create cuFFT plan*/
-		Print("Creating FFT plans\n");
-		cufftHandle plan;
-		CHECK_CUFFT_ERRORS(cufftCreate(&plan));
-		CHECK_CUFFT_ERRORS(cufftPlan1d(&plan, mg[i].blockSize, CUFFT_R2C, 1));
-
-		/*Plans*/
-		cufftHandle outplan;
-		CHECK_CUFFT_ERRORS(cufftCreate(&outplan));
-		CHECK_CUFFT_ERRORS(cufftPlan1d(&outplan, mg[i].blockSize, CUFFT_C2R, 1));
-
-#if defined WIN64 || CB == 0
-#else
-		/*Create host pointer to CB Function*/
-		cufftCallbackLoadC hostCopyOfCallbackPtr;
-		checkCudaErrors(cudaMemcpyFromSymbol(&hostCopyOfCallbackPtr, myOwnCallbackPtr, sizeof(hostCopyOfCallbackPtr)));
-
-		/*Associate the load callback with the plan*/
-		CHECK_CUFFT_ERRORS(cufftXtSetCallback(outplan, (void **)&hostCopyOfCallbackPtr,
-			CUFFT_CB_LD_COMPLEX, (void **)&(mg[i].d_rbuf)));
-#endif	
-
-		/*Transform Filter*/
-		Print("Transforming filter\n");
-		CHECK_CUFFT_ERRORS(cufftExecR2C(plan, (cufftReal *)mg[i].d_rbuf, (cufftComplex*)mg[i].d_rbuf));
-
-		/*Convolving*/
-		overlapAdd(mg[i].d_ibuf, (cufftComplex*)mg[i].d_rbuf, mg[i].size, M, mg[i].blockSize, mg[i].numBlocks, plan, outplan);
-		CHECK_CUFFT_ERRORS(cufftDestroy(plan));
-		CHECK_CUFFT_ERRORS(cufftDestroy(outplan));
-
-		checkCudaErrors(cudaFree(mg[i].d_rbuf));
-	}
-	return minmax1;
 }
 int doubleBlockTest(int numDevs, size_t *freeSizes, multi_gpu_struct *mg, passable *p) {
-	long long iFrames = p->input->frames;
-	long long rFrames = p->reverb->frames;
-	long long M = rFrames - 1;
+	size_t iFrames = p->input->frames;
+	size_t rFrames = p->reverb->frames;
+	size_t M = rFrames - 1;
 
 	Print("Verifying total size of GPUs\n");
-	long long totalAllowedFrames = 0;
-	int singleDev;
+	size_t totalAllowedFrames = 0;
+	//int singleDev;
 	size_t max = 0;
 	for (int i = 0; i < numDevs; i++) {
 		/*Theoretically should be 4. Dividing by 8 to be conservative*/
-		totalAllowedFrames += freeSizes[i] / 4 / 2;
+		totalAllowedFrames += freeSizes[i] / 4 / 2 / 2;
 		totalAllowedFrames -= rFrames;
 
 		/*Finding device with most memory*/
 		if (max < totalAllowedFrames) {
 			max = totalAllowedFrames;
-			singleDev = i;
+			//singleDev = i;
 		}
 	}
 	/*TODO: Add condition for output memory allocation*/
-	if (totalAllowedFrames < iFrames + M * numDevs) {
+	if (totalAllowedFrames < (size_t) (iFrames + M * numDevs)) {
 		Print("totalAllowedFrames < iFrames + M * numDevs failed\n");
 		return 0;
 		/*
@@ -458,18 +472,18 @@ int doubleBlockTest(int numDevs, size_t *freeSizes, multi_gpu_struct *mg, passab
 	}
 
 	/*Checking to see if memory will be distributed by method 1 or 2*/
-	long long amtPerDevice = (iFrames + numDevs - 1) / numDevs;
+	size_t amtPerDevice = (iFrames + numDevs - 1) / numDevs;
 	for (int i = 0; i < numDevs; i++) {
 		/*Theoretically should be 4, dividing by 8 to be conservative*/
-		size_t freeSize = freeSizes[i] / 4 / 2 - rFrames;
+		size_t freeSize = freeSizes[i] / 4 / 2 / 4 - rFrames;
 		freeSize = pow(2, floor(log2((double)freeSize)));
-		if (amtPerDevice + M > freeSize) {
+		if (amtPerDevice + (size_t) M > freeSize) {
 			fprintf(stderr, "Attempting method 2 memory redistribution.\n");
 			amtPerDevice = iFrames;
 			break;
 		}
 	}
-	if (amtPerDevice == (iFrames + numDevs - 1) / numDevs) return 1;
+	if (amtPerDevice == (size_t) (iFrames + numDevs - 1) / numDevs) return 1;
 
 
 	/*Filling in data*/
@@ -477,46 +491,45 @@ int doubleBlockTest(int numDevs, size_t *freeSizes, multi_gpu_struct *mg, passab
 
 	/*Making the block size where L = M approx*/
 	size_t smallestBlockSize = pow(2, ceil(log2((double)(M * 2))));
-	fprintf(stderr, "smallestBlockSize: %lu\n", smallestBlockSize);
+	fprintf(stderr, "smallestBlockSize: %'lu\n", smallestBlockSize);
+
 	/*Checking to see if there's enough memory*/
-	long long framecount = 0;
 	for (int i = 0; i < numDevs; i++) {
-		if (framecount >= iFrames) {
-			mg[i].size = 0;
-			mg[i].d_ibuf = NULL;
-			mg[i].d_rbuf = NULL;
-			mg[i].L = 0;
-			mg[i].offset = -1;
-			mg[i].numBlocks = 0;
-			mg[i].M = 0;
-			mg[i].blockSize = 0;
-			continue;
-		}
 		mg[i].M = M;
 		mg[i].blockSize = smallestBlockSize;
-		mg[i].L = smallestBlockSize - M;
-
-		/*Estimated amount of allocatable floats. Theoretically should be 4, dividing by 8 to be conservative*/
-		size_t actualFreeSize = freeSizes[i] / 4U / 2U;
-
-		actualFreeSize -= smallestBlockSize * 2U;
-		/*Estimated amount of allocatable floats to the power of 2*/
-		size_t inBlockSize = pow(2, ceil(log2((double)actualFreeSize)));
-		
-		/*Number of elements in input - M*/
-		inBlockSize -= M;
-
-		mg[i].offset = framecount;
-		mg[i].size = inBlockSize < iFrames - framecount ? inBlockSize : iFrames - framecount;
-		mg[i].numBlocks = mg[i].size / mg[i].L;
-		framecount += inBlockSize;
 		printMGInfo(mg[i]);
 	}
-	if (framecount >= iFrames) {
-		return 2;
+	if (!checkDistribution(mg, numDevs, iFrames, freeSizes)) {
+		return 0;
 	}
 
-	return 0;
+	/*Increasing the block size on each device to find the optimal setup
+		where block size on each device is maximized*/
+	int fullCount = 0;
+	int dev = 0;
+	/*TODO: Needs thorough testing*/
+	do{
+		if(mg[dev].numBlocks){
+			if(mg[dev].offset != -1){
+				mg[dev].blockSize *= 2;
+			}
+			if(!checkDistribution(mg, numDevs, iFrames, freeSizes)){
+				mg[dev].blockSize /= 2;
+				checkDistribution(mg, numDevs, iFrames, freeSizes);
+				fullCount++;
+			}
+			else{
+				fullCount = 0;
+			}
+		}
+		else{
+			fullCount++;
+		}
+		dev++;
+		dev %= numDevs;
+	}
+	while(fullCount < numDevs);
+	return 2;
 }
 float *multiGPUFFTDebug(passable *p) {
 	setlocale(LC_NUMERIC, "");
@@ -558,7 +571,7 @@ float *multiGPUFFTDebug(passable *p) {
 	
 	for (int i = 0; i < numDevs; i++) {
 		cudaSetDevice(i);
-		freeSizes[i] = getFreeSize();
+		freeSizes[i] = getFreeSize() / 2;
 		printSize();
 		for (int j = 0; j < streamsPerDev; j++) {
 			checkCudaErrors(cudaStreamCreate(&stream[i * streamsPerDev + j]));
@@ -569,35 +582,27 @@ float *multiGPUFFTDebug(passable *p) {
 	size_t totalAllowedFrames = 0;
 	for (int i = 0; i < numDevs; i++) {
 		/*Max number of elements that's a power of 2*/
-		size_t freeAmount = pow(2, floor(log2((double)(freeSizes[i] / 4 / 2))));
+		size_t freeAmount = pow(2, floor(log2((double)(freeSizes[i] / 4 / 2 / 16))));
 		totalAllowedFrames += freeAmount - M;
 	}
 
 	/*Single Block*/
-	if (totalAllowedFrames > iFrames) {
+	if (totalAllowedFrames > (size_t)iFrames) {
 		/*Determining method 1 or method 2*/
 		bool method1 = true;
-		long long amtPerDevice = (iFrames + numDevs - 1) / numDevs;
+		size_t amtPerDevice = (iFrames + numDevs - 1) / numDevs;
 		amtPerDevice += M;
 		amtPerDevice = pow(2, ceil(log2((double)amtPerDevice)));
 		for (int i = 0; i < numDevs; i++) {
-			if (freeSizes[i] / 16 / 2 < amtPerDevice) {
+			if (freeSizes[i] / 16U / 2U / 4U < amtPerDevice) {
 				method1 = false;
+				Print("SG Block Method 2\n");
 				break;
 			}
 		}
-
-		if (method1) {
-			Print("SG Block method 1\n");
-			/*Do method 1*/
-			minmax1 = singleBlockMethodOne(p, numDevs, stream, mg);
-		}
-		else {
-			/*Do method 2*/
-			Print("SG Block method 2\n");
-			minmax1 = singleBlockMethodTwo(p, numDevs, freeSizes, stream, mg);
-
-		}
+		int method = method1 ? 1 : 2;
+		if(method1) Print("SG Block Method 1\n");
+		minmax1 = singleBlock(p, numDevs, freeSizes, stream, mg, method);
 	}
 	else {
 		/*Double Block*/

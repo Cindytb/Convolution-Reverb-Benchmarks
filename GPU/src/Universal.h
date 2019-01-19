@@ -1,6 +1,6 @@
 #pragma once 
 #ifndef _UNIVERSAL_H_
-#define _UNIVERSAL_H
+#define _UNIVERSAL_H_
 
 enum flags {
 	mono_mono,
@@ -9,31 +9,36 @@ enum flags {
 	stereo_stereo,
 };
 
-typedef struct audio_container {
-	long long frames;
+struct audio_container {
+	size_t frames;
 	float *d_buf;
 	float *buf;
 	int channels;
-} audio_container;
+};
 
-typedef struct multi_gpu_struct {
+struct db_block_struct{
+	int L;
+	int numBlocks;
+};
+
+struct multi_gpu_struct {
 	float *d_ibuf;
 	float *d_rbuf;
-	long long size;
-	long long L;
-	long long offset;
+	size_t size;
 	size_t blockSize;
+	long long offset;
+	long L;
 	int numBlocks;
 	int M;
-} multi_gpu_struct;
+};
 
-typedef struct passable {
+struct passable {
 	audio_container *input;
 	audio_container *reverb;
 	multi_gpu_struct *mg_struct;
 	long long paddedSize;
 	enum flags type;
-} passable;
+};
 
 #define CB 1
 //CB = 0 -- force no callback

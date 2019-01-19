@@ -21,3 +21,6 @@ moveStuff.sh
 parseTex.py
 .vscode
 .vscode/*
+Audio/generate-chirp
+Audio/out.wav
+Audio/out.wav.reapeaks

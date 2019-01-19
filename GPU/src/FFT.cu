@@ -52,7 +52,7 @@ __global__ void RealFloatScaleConcurrent(float *a, long long size, long long str
 int errorCheckBufs(float *buf1, float *buf2, size_t size){
 	float *buf3 = (float *)malloc(size * sizeof(float));
     int max = 0;
-    for(long long i = 0; i < size; i++){
+    for(size_t i = 0; i < size; i++){
         buf3[i] = fabs(buf1[i] - buf2[i]);
         if (buf3[max] < fabs(buf3[i])){
             max = i;
