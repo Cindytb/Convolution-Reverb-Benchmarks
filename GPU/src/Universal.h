@@ -2,6 +2,7 @@
 #ifndef _UNIVERSAL_H_
 #define _UNIVERSAL_H_
 
+/*Using C++ style enums and structs*/
 enum flags {
 	mono_mono,
 	mono_stereo,

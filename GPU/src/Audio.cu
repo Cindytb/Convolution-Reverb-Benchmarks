@@ -50,7 +50,7 @@ void errorCheckGPU(int iCh, int rCh, int iSR, int rSR, passable *p){
 		exit(200);
 	}
 }
-long long getAudioBlockSize(enum flags flag) {
+long long getAudioBlockSize(flags flag) {
 	long long totalGPURAM = getFreeSize();
 	long long lenY;
 	if(flag == mono_mono){

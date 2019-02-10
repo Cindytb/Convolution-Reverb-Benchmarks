@@ -11,7 +11,7 @@ void findBlockSize(long long iFrames, int M, size_t *blockSize, int *blockNum) {
 		myExp--;
 	}
 	int smallerBlockSize = pow(2, myExp);
-	*blockNum = 0;
+	*blockNum = 1;
 	size_t workspace;
 	CHECK_CUFFT_ERRORS(cufftEstimate1d(smallerBlockSize, CUFFT_R2C, 2, &workspace));
 
@@ -29,7 +29,7 @@ void findBlockSize(long long iFrames, int M, size_t *blockSize, int *blockNum) {
 }
 
 void mismatchedConvolve(passable *p) {
-	enum flags flag = p->type;
+	flags flag = p->type;
 	long long paddedSize = p->paddedSize;
 	float *d_ibuf = p->input->d_buf;
 	float *d_rbuf = p->reverb->d_buf;
@@ -204,7 +204,7 @@ void overlapAdd(float *d_ibuf, cufftComplex *d_rbuf, long long iFrames, long lon
 
 	checkCudaErrors(cudaMalloc(&d_block, (blockSize / 2 + 1) * sizeof(cufftComplex)));
 
-	for (int blockNo = 0; blockNo <= blockNum; blockNo++) {
+	for (int blockNo = 0; blockNo < blockNum; blockNo++) {
 		long long cpyAmount = L;
 		if (blockNo == blockNum && iFrames != cpyAmount) {
 			cpyAmount = iFrames % L;
@@ -240,7 +240,7 @@ void overlapAdd(float *d_ibuf, cufftComplex *d_rbuf, long long iFrames, long lon
 		}
 		checkCudaErrors(cudaDeviceSynchronize());
 		/*Corner case where only one block*/
-		if (blockNo == 0 && blockNo == blockNum) {
+		if (blockNo == 0 && blockNo == blockNum - 1) {
 			checkCudaErrors(cudaMemcpy(d_ibuf, d_block, (cpyAmount + M) * sizeof(float), cudaMemcpyDeviceToDevice));
 			break;
 		}
@@ -250,7 +250,7 @@ void overlapAdd(float *d_ibuf, cufftComplex *d_rbuf, long long iFrames, long lon
 			checkCudaErrors(cudaMemcpy(d_ibuf, d_block, L * sizeof(float), cudaMemcpyDeviceToDevice));
 		}
 		/*Last case*/
-		if (blockNo == blockNum) {
+		if (blockNo == blockNum - 1) {
 			//fprintf(stderr, "Copy(obuf[%'i], block[%'i], %'i)\n", blockNo * L + M, M, cpyAmount);
 			checkCudaErrors(cudaMemcpy(&d_ibuf[blockNo * L + M], &d_block[M], cpyAmount * sizeof(float), cudaMemcpyDeviceToDevice));
 		}
@@ -271,7 +271,7 @@ float *blockConvolution(passable *p) {
 	long long rFrames = p->reverb->frames;
 	long long iFrames = p->input->frames;
 	long long oFrames = rFrames + iFrames - 1;
-	enum flags flag = p->type;
+	flags flag = p->type;
 	int oCh = flag == mono_mono ? 1 : 2;
 	float minmax, minmax2;
 	cudaEvent_t start, stop;
@@ -430,7 +430,7 @@ float *convolution(passable *p) {
 	float *d_rbuf = p->reverb->d_buf;
 	float *d_obuf = d_ibuf;
 	float *obuf;
-	enum flags flag = p->type;
+	flags flag = p->type;
 	int oCh = flag == mono_mono ? 1 : 2;
 	long long paddedSize = p->paddedSize;
 	float minmax, minmax2;

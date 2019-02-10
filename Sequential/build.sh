@@ -1,16 +1,33 @@
 #!/bin/bash
 host=$(hostname)
-if [[ "$host" = *"cims"* ]]
-    then host="cims"
-    else host="prince"
+if [[ "$host" = *"cims"* ]]; then 
+    host="cims"
+elif [[ "$host" = *"log"* ]] ; then 
+    host="prince"
 fi
-DIRS="
--L/home/ctb335/libsndfile/lib
--L/share/apps/libsndfile/1.0.28/intel/lib \
--L/share/apps/fftw/3.3.6-pl2/intel/lib
--L/home/ctb335/Capstone/Sequential
--L/media/removable/CTB/Capstone/MASTER/Sequential
-"
+
+WD=$(pwd)
+if [[ $host = "cims" ]]; then
+    DIRS="-L$WD \
+        -L/home/ctb335/libsndfile/lib
+    "
+    INC="-I/home/ctb335/libsndfile/include"
+elif [[ $host = "prince" ]]; then
+    DIRS="-L$WD\
+        -L/share/apps/libsndfile/1.0.28/intel/lib \
+        -L/share/apps/fftw/3.3.6-pl2/intel/lib
+    "
+    INC="
+        -I/share/apps/libsndfile/1.0.28/intel/include \
+        -I/share/apps/fftw/3.3.6-pl2/intel/include"
+else
+    DIRS="-L$WD \
+        -L/usr/lib/x86_64-linux-gnu \
+    "
+    INC="
+        -I/usr/include
+    "
+fi
 
 INC="
 -I/home/ctb335/libsndfile/include \
@@ -29,12 +46,13 @@ SRCDIR="src"
 if [[ $host = "cims" ]]; then
     module purge
     module load gcc-6.2.0
-else
+elif [[ $host = "prince" ]]; then
     module purge
     module load gcc/6.3.0
     module load libsndfile/intel/1.0.28
     module load fftw/intel/3.3.6-pl2
 fi
+
 if [[ $1 == "clean" ]]; then
     rm ${OBJDIR}/*.o
 fi
@@ -61,5 +79,5 @@ if [[ $1 == "noexec" ]]; then
     exit 0
 else
     echo Creating executable
-    g++ -o bin/seqConvolve.out src/runner.cpp $INC $DIRS $LIBS -lseqconvolve
+    g++ -o bin/seqConvolve.out src/runner.cpp -lseqconvolve $INC $DIRS $LIBS 
 fi

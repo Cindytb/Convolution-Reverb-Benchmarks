@@ -24,3 +24,5 @@ parseTex.py
 Audio/generate-chirp
 Audio/out.wav
 Audio/out.wav.reapeaks
+Sequential/bin/seqConvolve.out
+Sequential/libseqconvolve.a
