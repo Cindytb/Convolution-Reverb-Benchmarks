@@ -19,10 +19,15 @@ script-cims.exp
 script-hpc.exp
 moveStuff.sh
 parseTex.py
-.vscode
-.vscode/*
+.vscode/ipch/*
+.vs/*
+x64/*
 Audio/generate-chirp
 Audio/out.wav
 Audio/out.wav.reapeaks
 Sequential/bin/seqConvolve.out
 Sequential/libseqconvolve.a
+GPU/x64/*
+Sequential/x64/*
+GPU/out.wav
+Sequential/out.wav

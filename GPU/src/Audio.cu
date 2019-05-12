@@ -152,9 +152,9 @@ void readFileExperimentalDebug(const char *iname, const char *rname,
 	
 		Print("Checking to see if block processing is necessary\n");
 		/*Check memory to see if input needs to be processed in chunks*/
-		//if(p->paddedSize > getAudioBlockSize(p->type)){
+		if(p->paddedSize > getAudioBlockSize(p->type)){
 			*blockProcessingOn = true;
-		//}
+		}
 	}
 	else{
 		p->paddedSize = iFrames + rFrames - 1;
@@ -195,6 +195,7 @@ void readFileExperimentalDebug(const char *iname, const char *rname,
 	}
 	/*Single Device Block*/
 	else if (*blockProcessingOn){
+		checkCudaErrors(cudaSetDevice(gpuGetMaxGflopsDeviceId()));
 		/*Allocate device memory for input but not reverb*/
 		Print("Allocating Device Memory For Single Device Block Processing\n");
 		checkCudaErrors(cudaMalloc(&(p->input->d_buf), (iFrames + rFrames - 1) * oCh * sizeof(float)));

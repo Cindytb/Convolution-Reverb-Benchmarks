@@ -1,4 +1,5 @@
 #include "Main.cuh"
+#ifndef WIN64
 void drawGraph(float * buf, long long size, int SR, const char * name){
 	int NUM_COMMANDS = 2;
 	const char * commandsForGnuplot[] = {"set terminal pngcairo size 1366,768 ",
@@ -21,6 +22,7 @@ void drawGraph(float * buf, long long size, int SR, const char * name){
 	fprintf(gnuplotPipe, "e");
 	pclose(gnuplotPipe);
 }
+#endif
 void printMe(passable *p){
 	fprintf(stderr, "\nAddress of p: %p\n", (void*)p);
 	fprintf(stderr, "Address of p->input: %p\n", p->input);

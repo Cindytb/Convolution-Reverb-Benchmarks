@@ -1,0 +1,63 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CudaCompile Include="src/Audio.cu">
+      <Filter>Source Files</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/Convolution.cu">
+      <Filter>Source Files</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/FFT.cu">
+      <Filter>Source Files</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/main.cu">
+      <Filter>Source Files</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/MemManage.cu">
+      <Filter>Source Files</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/runner.cu">
+      <Filter>Source Files</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/sgDevConvolution.cu">
+      <Filter>Source Files</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/thrustOps.cu">
+      <Filter>Source Files</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/timeDomain.cu">
+      <Filter>Source Files</Filter>
+    </CudaCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{6c731ee8-915f-4393-9195-a17ffa7201f9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{72966600-bd09-4b47-b524-9ce63f2cdb48}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src/Audio.cuh">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src/Convolution.cuh">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src/FFT.cuh">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src/main.cuh">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src/MemManage.cuh">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src/thrustOps.cuh">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src/Universal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

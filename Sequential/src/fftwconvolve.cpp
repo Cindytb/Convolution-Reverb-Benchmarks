@@ -218,7 +218,7 @@ float *blockConvolve(float *ibuf, float *rbuf, long long iFrames, long long rFra
 
     flags num;
     if(oCh == 1){
-        num == mono_mono;
+        num = mono_mono;
     }
     else if(iCh == rCh){
         num = stereo_stereo;
@@ -241,7 +241,7 @@ float *blockConvolve(float *ibuf, float *rbuf, long long iFrames, long long rFra
 }
 
 float * regularConvolve(float *ibuf, long long paddedSize, long long iFrames, long long oFrames, int iCh, int rCh){
-    float peak_in, peak_out, scale;
+    float peak_in = 0.0f, peak_out = 0.0f, scale = 0.0f;
     int oCh = iCh == 2 || rCh == 2 ? 2 : 1;
     flags num;
     if(oCh == 1){

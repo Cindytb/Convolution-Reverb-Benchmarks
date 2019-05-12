@@ -1,8 +1,8 @@
 #include "Convolution.cuh"
 // Define the device pointer to the callback routine. The host code will fetch this and pass it to CUFFT
-
+#ifndef WIN64
 __device__ cufftCallbackLoadC myOwnCallbackPtr = cbComplexPointwiseMul;
-
+#endif
 void findBlockSize(long long iFrames, int M, size_t *blockSize, int *blockNum) {
 	/*Finding block size/number*/
 
