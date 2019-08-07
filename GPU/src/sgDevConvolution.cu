@@ -10,21 +10,21 @@ void findBlockSize(long long iFrames, int M, size_t *blockSize, int *blockNum) {
 	while (pow(2, myExp) > INT_MAX) {
 		myExp--;
 	}
-	int smallerBlockSize = pow(2, myExp);
+	size_t smallerBlockSize = pow(2, myExp);
 	*blockNum = 1;
 	size_t workspace;
 	CHECK_CUFFT_ERRORS(cufftEstimate1d(smallerBlockSize, CUFFT_R2C, 2, &workspace));
 
 	/*Look for block size worth with 2 complex arrays
-	Multiply by 2 to leave some room*/
-	while (getFreeSize() < workspace + (smallerBlockSize / 2 + 1) * 8L * 2L) {
+	Multiply by 4 to leave some room*/
+	while (getFreeSize() < workspace + (smallerBlockSize / 2 + 1) * 8L * 4L) {
 		myExp--;
 		smallerBlockSize = pow(2, myExp);
 		(*blockNum)++;
 		CHECK_CUFFT_ERRORS(cufftEstimate1d(smallerBlockSize, CUFFT_R2C, 2, &workspace));
 	}
 
-	fprintf(stderr, "blockSize: %'i\t numBlocks: %i\n", smallerBlockSize, *blockNum);
+	fprintf(stderr, "blockSize: %i\t numBlocks: %i\n", smallerBlockSize, *blockNum);
 	*blockSize = smallerBlockSize;
 }
 
@@ -392,7 +392,7 @@ float *blockConvolution(passable *p) {
 
 	float scale = minmax / minmax2;
 	long long end = oFrames * oCh;
-	fprintf(stderr, "end: %'lli\n", end);
+	fprintf(stderr, "end: %lli\n", end);
 	/*Block/Thread sizes for kernels*/
 	blockSize = 512;
 	numBlocks = (end + blockSize - 1) / blockSize;
@@ -435,7 +435,7 @@ float *convolution(passable *p) {
 	long long paddedSize = p->paddedSize;
 	float minmax, minmax2;
 	cudaEvent_t start, stop;
-	printMe(p);
+	//printMe(p);
 
 	cudaEventCreate(&start);
 	cudaEventCreate(&stop);
@@ -508,5 +508,6 @@ float *convolution(passable *p) {
 	fprintf(stderr, "Time for GPU convolution: %f ms\n", milliseconds);
 
 	checkCudaErrors(cudaFree(d_ibuf));
+	checkCudaErrors(cudaFree(d_rbuf));
 	return obuf;
 }

@@ -31,9 +31,9 @@ void printMe(passable *p){
 	fprintf(stderr, "Address of p->reverb->d_buf: %p\n", p->reverb->d_buf);
 	fprintf(stderr, "Address of p->input->buf: %p\n", p->input->buf);
 	fprintf(stderr, "Address of p->reverb->buf: %p\n", p->reverb->buf);
-	fprintf(stderr, "iFrames: %'lu\n", p->input->frames);
-	fprintf(stderr, "rFrames: %'lu\n", p->reverb->frames);
-	fprintf(stderr, "paddedSize: %'lli\n\n", p->paddedSize);
+	fprintf(stderr, "iFrames: %lu\n", p->input->frames);
+	fprintf(stderr, "rFrames: %lu\n", p->reverb->frames);
+	fprintf(stderr, "paddedSize: %lli\n\n", p->paddedSize);
 }
 
 
@@ -55,7 +55,7 @@ float *gpuEntry(std::string input, std::string reverb, std::string out, bool tim
 	if(p->type != mono_mono){
 		oCh = 2;
 	}
-	printMe(p);
+	//printMe(p);
 	if(timeDomain){
 		obuf = TDconvolution(p);
 	}

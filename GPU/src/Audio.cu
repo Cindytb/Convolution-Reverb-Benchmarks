@@ -198,7 +198,11 @@ void readFileExperimentalDebug(const char *iname, const char *rname,
 		checkCudaErrors(cudaSetDevice(gpuGetMaxGflopsDeviceId()));
 		/*Allocate device memory for input but not reverb*/
 		Print("Allocating Device Memory For Single Device Block Processing\n");
-		checkCudaErrors(cudaMalloc(&(p->input->d_buf), (iFrames + rFrames - 1) * oCh * sizeof(float)));
+		cudaError_t err = cudaMalloc(&(p->input->d_buf), (iFrames + rFrames - 1) * oCh * sizeof(float));
+		if (err){
+			fprintf(stderr, "ERROR: Not enough memory on device for entire input\n");
+			exit(EXIT_FAILURE);
+		}
 		
 	}
 	/*Time Domain Block Processing*/
@@ -212,14 +216,12 @@ void readFileExperimentalDebug(const char *iname, const char *rname,
 	else{
 		Print("Allocating Device Memory For Regular\n");
 		/*Allocate device memory for input and reverb with padding*/
-		checkCudaErrors(cudaMalloc(&(p->input->d_buf), 
-			(p->paddedSize * iCh + iCh + p->paddedSize * rCh + rCh) * sizeof(cufftComplex)));
-			
-		p->reverb->d_buf = p->input->d_buf + p->paddedSize * iCh + iCh;
+		checkCudaErrors(cudaMalloc(&(p->input->d_buf), (p->paddedSize * iCh + 2) * sizeof(cufftComplex)));
+		checkCudaErrors(cudaMalloc(&(p->reverb->d_buf), (p->paddedSize * rCh + 2) * sizeof(float)));
 	}
 	d_ibuf = p->input->d_buf;
 	d_rbuf = p->reverb->d_buf;
-	printMe(p);
+	//printMe(p);
 	
 
 	/*Allocate host pinned memory for input and reverb*/

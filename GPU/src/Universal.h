@@ -38,7 +38,7 @@ struct passable {
 	audio_container *reverb;
 	multi_gpu_struct *mg_struct;
 	long long paddedSize;
-	enum flags type;
+	flags type;
 };
 
 #define CB 1
