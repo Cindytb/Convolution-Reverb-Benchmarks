@@ -31,3 +31,4 @@ GPU/x64/*
 Sequential/x64/*
 GPU/out.wav
 Sequential/out.wav
+*.wav
