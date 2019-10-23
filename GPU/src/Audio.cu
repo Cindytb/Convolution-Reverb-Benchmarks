@@ -216,7 +216,7 @@ void readFileExperimentalDebug(const char *iname, const char *rname,
 	else{
 		Print("Allocating Device Memory For Regular\n");
 		/*Allocate device memory for input and reverb with padding*/
-		checkCudaErrors(cudaMalloc(&(p->input->d_buf), (p->paddedSize * iCh + 2) * sizeof(cufftComplex)));
+		checkCudaErrors(cudaMalloc(&(p->input->d_buf), (p->paddedSize * iCh + 2) * sizeof(float)));
 		checkCudaErrors(cudaMalloc(&(p->reverb->d_buf), (p->paddedSize * rCh + 2) * sizeof(float)));
 	}
 	d_ibuf = p->input->d_buf;
