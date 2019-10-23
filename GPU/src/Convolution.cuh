@@ -26,6 +26,7 @@ float * convolution(passable *p);
 float * blockConvolution(passable *p);
 float *multiGPUFFTDebug(passable *p);
 void mismatchedConvolve(passable *p);
+float * specialConvolution(passable *p);
 void convolve(float *d_ibuf, float *d_rbuf, long long paddedSize);
 /*Assumes that d_buf contains paddedSize * 2 elements. 
 Input is in first half, filter is in second half, and both are padded*/ 

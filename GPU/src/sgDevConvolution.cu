@@ -511,3 +511,85 @@ float *convolution(passable *p) {
 	checkCudaErrors(cudaFree(d_rbuf));
 	return obuf;
 }
+float *specialConvolution(passable *p) {
+	float *d_ibuf = p->input->d_buf;
+	float *d_rbuf = p->reverb->d_buf;
+	float *d_obuf = d_ibuf;
+	float *obuf;
+	flags flag = p->type;
+	int oCh = flag == mono_mono ? 1 : 2;
+	long long paddedSize = p->paddedSize;
+	float minmax, minmax2;
+	cudaEvent_t start, stop;
+	//printMe(p);
+
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+	cudaEventRecord(start);
+
+	/*Allocating host memory for output*/
+	Print("Allocating host memory for output\n");
+	checkCudaErrors(cudaMallocHost((void**)&obuf, paddedSize * oCh * sizeof(float)));
+
+	/*Find peak of input signal*/
+	//Print("Finding peak of input signal\n");
+	//minmax = DExtrema(d_ibuf, paddedSize * oCh);
+
+	/*Convolving*/
+	if (flag == mono_mono) {
+		Print("mono_mono Convolving\n");
+		//convolve(d_ibuf, d_rbuf, paddedSize);
+		convolveBatched(d_ibuf, paddedSize);
+	}
+	else if (flag == stereo_stereo) {
+		Print("stereo_stereo Convolving\n");
+		convolve(d_ibuf, d_rbuf, paddedSize);
+		convolve(d_ibuf + paddedSize, d_rbuf + paddedSize, paddedSize);
+	}
+	else {
+		mismatchedConvolve(p);
+		if (flag == mono_stereo) {
+			d_obuf = d_rbuf;
+		}
+	}
+
+	long long end = paddedSize * oCh;
+
+	/*Block/Thread sizes for kernels*/
+	int blockSize = 512;
+	int numBlocks = (end + blockSize - 1) / blockSize;
+
+	/*Asynchronous copy & scale */
+	const int nStreams = 4;
+	int streamSize = (end + nStreams - 1) / nStreams;
+	int streamBytes = streamSize * sizeof(float);
+	numBlocks = (streamSize + blockSize - 1) / blockSize;
+
+	/*Create streams*/
+	Print("Creating streams\n");
+	cudaStream_t stream[nStreams];
+	for (int i = 0; i < nStreams; ++i) {
+		checkCudaErrors(cudaStreamCreate(&stream[i]));
+	}
+	Print("Scaling and copying\n");
+	for (int i = 0; i < nStreams; ++i) {
+		long long offset = i * streamSize;
+		/*Run scale kernel*/
+		// RealFloatScaleConcurrent << < numBlocks, blockSize, 0, stream[i] >> > (d_obuf, end, streamSize, scale, offset);
+		/*Copy device memory to host asynchronously*/
+		if (i == nStreams - 1) {
+			streamBytes = sizeof(float) * (end - offset);
+		}
+		checkCudaErrors(cudaMemcpyAsync(&obuf[offset], &d_obuf[offset], streamBytes, cudaMemcpyDeviceToHost, stream[i]));
+	}
+	cudaEventRecord(stop);
+	cudaEventSynchronize(stop);
+	float milliseconds = 0;
+	cudaEventElapsedTime(&milliseconds, start, stop);
+	fprintf(stderr, "Time for GPU convolution: %f ms\n", milliseconds);
+
+	checkCudaErrors(cudaFree(d_ibuf));
+	checkCudaErrors(cudaFree(d_rbuf));
+	return obuf;
+
+}

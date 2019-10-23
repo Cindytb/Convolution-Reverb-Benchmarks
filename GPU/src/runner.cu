@@ -37,9 +37,12 @@ int main(int argc, char **argv){
     float *obuf = gpuEntry(input, reverb, out, timeDomain);
 	if (obuf == NULL){
 		fprintf(stderr, "ERROR\n");
-		return 100;
+		//return 100;
 	}
-	checkCudaErrors(cudaFreeHost(obuf));
+	else{
+		checkCudaErrors(cudaFreeHost(obuf));
+	}
+	
 	cudaDeviceReset();
     return 0;
 }
