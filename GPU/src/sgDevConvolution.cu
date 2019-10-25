@@ -511,3 +511,216 @@ float *convolution(passable *p) {
 	checkCudaErrors(cudaFree(d_rbuf));
 	return obuf;
 }
+void blockProcess(passable* p) {
+	float* d_ibuf = p->input->d_buf;
+	float* rbuf = p->reverb->buf;
+	cufftComplex* d_filter_complex;
+	float* d_obuf = d_ibuf;
+	long long rFrames = p->reverb->frames;
+	long long iFrames = p->input->frames;
+	long long oFrames = rFrames + iFrames - 1;
+	flags flag = p->type;
+	int M = rFrames - 1;
+	size_t blockSize = iFrames;
+	int blockNum = 0;
+
+	/*Find block size and store in blockSize and blockNum*/
+	findBlockSize(iFrames, M, &blockSize, &blockNum);
+
+	/*TRANSFORMING FILTER*/
+	/*Allocating Memory*/
+	Print("Allocating memory\n");
+	int ch = p->reverb->channels;
+	checkCudaErrors(cudaMalloc(&d_filter_complex, (blockSize / 2 + 1) * ch * sizeof(cufftComplex)));
+
+	/*Block/Thread sizes for kernels*/
+	int numThreads = 256;
+	int numBlocks = (blockSize + 2 - rFrames + numThreads - 1) / numThreads;
+	cudaStream_t stream[4];
+	for (int i = 0; i < 4; i++) {
+		checkCudaErrors(cudaStreamCreate(&stream[i]));
+	}
+	/* Copy over filter */
+	Print("Copying over filter\n");
+	FillWithZeros << <numBlocks, numThreads, 0, stream[0] >> > ((float*)d_filter_complex, rFrames, blockSize + 2);
+	if (ch == 2) {
+		FillWithZeros << <numBlocks, numThreads, 0, stream[1] >> > ((float*)d_filter_complex + blockSize + 2,
+			rFrames, blockSize * 2 + 4);
+		checkCudaErrors(cudaMemcpyAsync((float*)d_filter_complex + blockSize + 2,
+			rbuf + rFrames, rFrames * sizeof(float), cudaMemcpyHostToDevice, stream[2]));
+	}
+	checkCudaErrors(cudaMemcpyAsync((float*)d_filter_complex, rbuf,
+		rFrames * sizeof(float), cudaMemcpyHostToDevice, stream[3]));
+
+
+	/*Create cuFFT plan*/
+	Print("Creating FFT plans\n");
+	cufftHandle plan;
+	CHECK_CUFFT_ERRORS(cufftCreate(&plan));
+	CHECK_CUFFT_ERRORS(cufftPlan1d(&plan, blockSize, CUFFT_R2C, 1));
+
+	/*Plans*/
+	cufftHandle outplan;
+	CHECK_CUFFT_ERRORS(cufftCreate(&outplan));
+	CHECK_CUFFT_ERRORS(cufftPlan1d(&outplan, blockSize, CUFFT_C2R, 1));
+
+
+#if defined WIN64 || CB == 0
+#else
+	/*Create host pointer to CB Function*/
+	cufftCallbackLoadC hostCopyOfCallbackPtr;
+	checkCudaErrors(cudaMemcpyFromSymbol(&hostCopyOfCallbackPtr, myOwnCallbackPtr, sizeof(hostCopyOfCallbackPtr)));
+
+	/*Associate the load callback with the plan*/
+	CHECK_CUFFT_ERRORS(cufftXtSetCallback(outplan, (void**)&hostCopyOfCallbackPtr,
+		CUFFT_CB_LD_COMPLEX, (void**)&d_filter_complex));
+#endif	
+
+	for (int i = 0; i < 4; i++) {
+		checkCudaErrors(cudaStreamSynchronize(stream[i]));
+	}
+
+	checkCudaErrors(cudaFreeHost(rbuf));
+
+	/*Transform Filter*/
+	Print("Transforming filter\n");
+	CHECK_CUFFT_ERRORS(cufftExecR2C(plan, (cufftReal*)d_filter_complex, (cufftComplex*)d_filter_complex));
+	if (ch == 2) {
+		CHECK_CUFFT_ERRORS(cufftExecR2C(plan, (cufftReal*)d_filter_complex + blockSize + 2, (cufftComplex*)d_filter_complex + blockSize / 2 + 1));
+	}
+	/*Convolving*/
+	if (flag == mono_mono) {
+		Print("mono_mono Convolving\n");
+		overlapAdd(d_obuf, d_filter_complex, iFrames, M, blockSize, blockNum, plan, outplan);
+	}
+	else if (flag == stereo_stereo) {
+		Print("stereo_stereo Convolving\n");
+		overlapAdd(d_obuf, d_filter_complex, iFrames, M, blockSize, blockNum, plan, outplan);
+		overlapAdd(d_obuf + oFrames, d_filter_complex + blockSize / 2 + 1,
+			iFrames, M, blockSize, blockNum, plan, outplan);
+	}
+	else if (flag == stereo_mono) {
+		Print("stereo_mono Convolving\n");
+		overlapAdd(d_obuf, d_filter_complex, iFrames, M, blockSize, blockNum, plan, outplan);
+		overlapAdd(d_obuf + oFrames, d_filter_complex, iFrames, M, blockSize, blockNum, plan, outplan);
+	}
+	else {
+		Print("mono_stereo Convolving\n");
+		checkCudaErrors(cudaMemcpy(d_obuf + oFrames, d_obuf, oFrames * sizeof(float), cudaMemcpyDeviceToDevice));
+		overlapAdd(d_obuf, d_filter_complex, iFrames, M, blockSize, blockNum, plan, outplan);
+		overlapAdd(d_obuf + oFrames, d_filter_complex + blockSize / 2 + 1,
+			iFrames, M, blockSize, blockNum, plan, outplan);
+	}
+	checkCudaErrors(cudaFree(d_filter_complex));
+	CHECK_CUFFT_ERRORS(cufftDestroy(plan));
+	CHECK_CUFFT_ERRORS(cufftDestroy(outplan));
+}
+
+void convolutionPicker(passable* p) {
+	
+}
+void process(passable* p) {
+	float* d_ibuf = p->input->d_buf;
+	float* d_rbuf = p->reverb->d_buf;
+	float* d_obuf = d_ibuf;
+	long long paddedSize = p->paddedSize;
+	flags flag = p->type;
+
+	/*Convolving*/
+	if (flag == mono_mono) {
+		Print("mono_mono Convolving\n");
+		//convolve(d_ibuf, d_rbuf, paddedSize);
+		convolveBatched(d_ibuf, paddedSize);
+	}
+	else if (flag == stereo_stereo) {
+		Print("stereo_stereo Convolving\n");
+		convolve(d_ibuf, d_rbuf, paddedSize);
+		convolve(d_ibuf + paddedSize, d_rbuf + paddedSize, paddedSize);
+	}
+	else {
+		mismatchedConvolve(p);
+		if (flag == mono_stereo) {
+			d_obuf = d_rbuf;
+		}
+	}
+}
+void asyncCopyScale(passable* p, float *obuf, long long end, float scale) {
+	float* d_obuf = p->input->d_buf;
+	/*Block/Thread sizes for kernels*/
+	int blockSize = 512;
+	int numBlocks = (end + blockSize - 1) / blockSize;
+
+	/*Asynchronous copy & scale */
+	const int nStreams = 4;
+	int streamSize = (end + nStreams - 1) / nStreams;
+	int streamBytes = streamSize * sizeof(float);
+	numBlocks = (streamSize + blockSize - 1) / blockSize;
+
+	/*Create streams*/
+	Print("Creating streams\n");
+	cudaStream_t stream[nStreams];
+	for (int i = 0; i < nStreams; ++i) {
+		checkCudaErrors(cudaStreamCreate(&stream[i]));
+	}
+	Print("Scaling and copying\n");
+	for (int i = 0; i < nStreams; ++i) {
+		long long offset = i * streamSize;
+		/*Run scale kernel*/
+		RealFloatScaleConcurrent << < numBlocks, blockSize, 0, stream[i] >> > (d_obuf, end, streamSize, scale, offset);
+		/*Copy device memory to host asynchronously*/
+		if (i == nStreams - 1) {
+			streamBytes = sizeof(float) * (end - offset);
+		}
+		checkCudaErrors(cudaMemcpyAsync(&obuf[offset], &d_obuf[offset], streamBytes, cudaMemcpyDeviceToHost, stream[i]));
+	}
+}
+float* convolutionWrapper(passable* p, bool blockProcessingOn) {
+	float* d_ibuf = p->input->d_buf;
+	float* d_rbuf = p->reverb->d_buf;
+	float* d_obuf = d_ibuf;
+	float* obuf;
+	flags flag = p->type;
+	int oCh = flag == mono_mono ? 1 : 2;
+	long long paddedSize = p->paddedSize;
+	float minmax, minmax2;
+	cudaEvent_t start, stop;
+
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+	cudaEventRecord(start);
+
+	/*Allocating host memory for output*/
+	Print("Allocating host memory for output\n");
+	checkCudaErrors(cudaMallocHost((void**)&obuf, paddedSize * oCh * sizeof(float)));
+
+	/*Find peak of input signal*/
+	Print("Finding peak of input signal\n");
+	minmax = DExtrema(d_ibuf, paddedSize * oCh);
+
+	/*Performing Convolution*/
+	if (blockProcessingOn) {
+		blockProcess(p);
+	}
+	else {
+		process(p);
+	}
+
+	/*Find peak of output*/
+	Print("Find peak of output\n");
+	minmax2 = DExtrema(d_obuf, paddedSize * oCh);
+
+	float scale = minmax / minmax2;
+	long long end = paddedSize * oCh;
+
+	asyncCopyScale(p, obuf, end, scale);
+
+	cudaEventRecord(stop);
+	cudaEventSynchronize(stop);
+	float milliseconds = 0;
+	cudaEventElapsedTime(&milliseconds, start, stop);
+	fprintf(stderr, "Time for GPU convolution: %f ms\n", milliseconds);
+
+	checkCudaErrors(cudaFree(d_ibuf));
+	checkCudaErrors(cudaFree(d_rbuf));
+	return obuf;
+}
