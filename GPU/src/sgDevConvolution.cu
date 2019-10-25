@@ -452,8 +452,8 @@ float *convolution(passable *p) {
 	/*Convolving*/
 	if (flag == mono_mono) {
 		Print("mono_mono Convolving\n");
-		//convolve(d_ibuf, d_rbuf, paddedSize);
-		convolveBatched(d_ibuf, paddedSize);
+		convolve(d_ibuf, d_rbuf, paddedSize);
+		//convolveBatched(d_ibuf, paddedSize); // not doing batched because it is very slightly slower (~20 ms)
 	}
 	else if (flag == stereo_stereo) {
 		Print("stereo_stereo Convolving\n");

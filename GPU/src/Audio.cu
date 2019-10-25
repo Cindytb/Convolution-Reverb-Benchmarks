@@ -50,6 +50,7 @@ void errorCheckGPU(int iCh, int rCh, int iSR, int rSR, passable *p){
 		exit(200);
 	}
 }
+
 long long getAudioBlockSize(flags flag) {
 	long long totalGPURAM = getFreeSize();
 	long long lenY;
@@ -126,14 +127,14 @@ void readFileExperimentalDebug(const char *iname, const char *rname,
 	/*Store input & reverb metadata*/
 	iSR = i_info.samplerate;
 	iFrames = i_info.frames;
-	p->input->frames = (size_t) iFrames;
 	iCh = i_info.channels;
+	p->input->frames = (size_t) iFrames;
 	p->input->channels = iCh;
 
 	rSR = r_info.samplerate;
 	rFrames = r_info.frames;
-	p->reverb->frames = (size_t) rFrames;
 	rCh = r_info.channels;
+	p->reverb->frames = (size_t) rFrames;
 	p->reverb->channels = rCh;
 
 	Print("Error checking\n");
