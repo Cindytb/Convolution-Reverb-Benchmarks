@@ -447,7 +447,7 @@ float *convolution(passable *p) {
 
 	/*Find peak of input signal*/
 	Print("Finding peak of input signal\n");
-	minmax = DExtrema(d_ibuf, paddedSize * oCh);
+	minmax = DExtrema(d_ibuf, paddedSize * p->input->channels);
 
 	/*Convolving*/
 	if (flag == mono_mono) {
