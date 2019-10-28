@@ -16,8 +16,8 @@ int main()
 {
 	int retval = 0;
 
-	/*printf("Testing thrustOps.cu\n");
-	retval += thrustOpsTest("thrustOps.cu");*/
+	printf("Testing thrustOps.cu\n");
+	retval += thrustOpsTest("thrustOps.cu");
 
 	printf("Testing GPU.exe\n");
 	retval += systemTest("GPU.exe");
@@ -145,12 +145,17 @@ int spawnChildProcess(std::string cmd) {
 int systemTest(char* filename) {
 
 	int retval = 0;
-	std::string path = "D:\\Projects\\CUDA\\Convolution-Reverb-Benchmarks";
+	std::string path("D:\\Projects\\CUDA\\Convolution-Reverb-Benchmarks");
 	std::string exe = path + "\\x64\\Debug\\GPU.exe";
-	std::string sgDevBlockFlags = " -i D:\\AllAudioEVER\\1015M.wav -r \"D:\\School\\College\\Senior Year\\Capstone\\Code\\IR\\96000\\Mono\\koli_snow_site1_1way_mono.wav\"";
+	std::string sgDevBlockFlags(" -i D:\\AllAudioEVER\\1015M.wav -r \"D:\\School\\College\\Senior Year\\Capstone\\Code\\IR\\96000\\Mono\\koli_snow_site1_1way_mono.wav\"");
 	std::string regularFlags = " -i " + path + "\\Audio\\Ex96.wav -r " + path + "\\Audio\\480000.wav";
+	std::string mono_stereo_flags = " -i " + path + "\\Audio\\channel_testing\\441\\Ex_441_mono.wav -r " + path + "\\Audio\\channel_testing\\441\\H0e090a.wav";
+	std::string stereo_stereo_flags = " -i " + path + "\\Audio\\channel_testing\\441\\Ex_441_stereo.wav -r " + path + "\\Audio\\channel_testing\\441\\H0e090a.wav";
 	
 	retval += conditional(!spawnChildProcess(exe + regularFlags), filename, "regular");
 	retval += conditional(!spawnChildProcess(exe + sgDevBlockFlags), filename, "sgDevBlock");
+	retval += conditional(!spawnChildProcess(exe + mono_stereo_flags), filename, "mono_stereo");
+	retval += conditional(!spawnChildProcess(exe + stereo_stereo_flags), filename, "stereo_stereo");
+	
 	return retval;
 }
