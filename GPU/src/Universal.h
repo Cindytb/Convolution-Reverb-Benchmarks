@@ -50,7 +50,6 @@ struct passable {
 //CONCURRENTKERNELCPY = 1 Scale kernel then copy, 4 streams
 //CONCURRENTKERNELCPY = 2 Scale kernel 4x then copy 4x
 
-#define _DEBUG 1
 #ifdef _DEBUG
 #define Print(s)  fprintf(stderr, "%s", s)
 #else

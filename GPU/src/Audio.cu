@@ -50,6 +50,7 @@ void errorCheckGPU(int iCh, int rCh, int iSR, int rSR, passable *p){
 		exit(200);
 	}
 }
+
 long long getAudioBlockSize(flags flag) {
 	long long totalGPURAM = getFreeSize();
 	long long lenY;
@@ -90,6 +91,38 @@ long long getAudioBlockSize(flags flag) {
 	/* Get first first power of two less than lenY */
 	return (long long)(pow(2, floor(log2( (double)lenY ) ) ) );
 }
+
+void allocateMultiDeviceMemory(passable* p, SNDFILE * r_sndfile, SNDFILE * i_sndfile) {
+	float* ibuf, * rbuf;
+	size_t rFrames = p->reverb->frames;
+	size_t iFrames = p->input->frames;
+	int iCh = p->input->channels;
+	int rCh = p->reverb->channels;
+
+	Print("Allocating Device Memory For Multiple Device Block Processing\n");
+	/*Allocate host pinned memory for input and reverb*/
+	checkCudaErrors(cudaMallocHost((void**)&ibuf, iFrames * iCh * sizeof(float)));
+	checkCudaErrors(cudaMallocHost((void**)&rbuf, rFrames * rCh * sizeof(float)));
+	Print("Reading in input\n");
+	sf_read_float(r_sndfile, rbuf, rFrames * rCh);
+
+	/*De-interleave input if stereo*/
+	if (iCh == 2) {
+		Print("De-interleaving input\n");
+		deInterleave(ibuf, iFrames * iCh);
+	}
+	Print("Reading in filter\n");
+	sf_read_float(i_sndfile, ibuf, iFrames * iCh);
+
+	/*De-interleave reverb if stereo*/
+	if (rCh == 2) {
+		Print("de-interleaving reverb\n");
+		deInterleave(rbuf, rFrames * rCh);
+	}
+	p->input->buf = ibuf;
+	p->reverb->buf = rbuf;
+}
+
 void readFileExperimentalDebug(const char *iname, const char *rname, 
 	int *SR, bool *blockProcessingOn, bool timeDomain, passable *p) {
 	setlocale(LC_NUMERIC, "");
@@ -126,14 +159,14 @@ void readFileExperimentalDebug(const char *iname, const char *rname,
 	/*Store input & reverb metadata*/
 	iSR = i_info.samplerate;
 	iFrames = i_info.frames;
-	p->input->frames = (size_t) iFrames;
 	iCh = i_info.channels;
+	p->input->frames = (size_t) iFrames;
 	p->input->channels = iCh;
 
 	rSR = r_info.samplerate;
 	rFrames = r_info.frames;
-	p->reverb->frames = (size_t) rFrames;
 	rCh = r_info.channels;
+	p->reverb->frames = (size_t) rFrames;
 	p->reverb->channels = rCh;
 
 	Print("Error checking\n");
@@ -169,28 +202,7 @@ void readFileExperimentalDebug(const char *iname, const char *rname,
 
 	/*Multiple Device Block Processing*/
 	if(*blockProcessingOn && numDevs != 1){
-		Print("Allocating Device Memory For Multiple Device Block Processing\n");
-		/*Allocate host pinned memory for input and reverb*/
-		checkCudaErrors(cudaMallocHost((void**)&ibuf, iFrames * iCh * sizeof(float)));
-		checkCudaErrors(cudaMallocHost((void**)&rbuf, rFrames * rCh * sizeof(float)));
-		Print("Reading in input\n");
-		sf_read_float(r_sndfile, rbuf, rFrames * rCh);
-		
-		/*De-interleave input if stereo*/
-		if(iCh == 2){
-			Print("De-interleaving input\n");
-			deInterleave(ibuf, iFrames * iCh);
-		}
-		Print("Reading in filter\n");
-		sf_read_float(i_sndfile, ibuf, iFrames * iCh);
-		
-		/*De-interleave reverb if stereo*/
-		if(rCh == 2){
-			Print("de-interleaving reverb\n");
-			deInterleave(rbuf, rFrames * rCh);
-		}
-		p->input->buf = ibuf;
-		p->reverb->buf = rbuf;
+		allocateMultiDeviceMemory(p, r_sndfile, i_sndfile);
 		return;
 	}
 	/*Single Device Block*/
@@ -216,7 +228,7 @@ void readFileExperimentalDebug(const char *iname, const char *rname,
 	else{
 		Print("Allocating Device Memory For Regular\n");
 		/*Allocate device memory for input and reverb with padding*/
-		checkCudaErrors(cudaMalloc(&(p->input->d_buf), (p->paddedSize * iCh + 2) * sizeof(cufftComplex)));
+		checkCudaErrors(cudaMalloc(&(p->input->d_buf), (p->paddedSize * iCh + 2) * sizeof(float)));
 		checkCudaErrors(cudaMalloc(&(p->reverb->d_buf), (p->paddedSize * rCh + 2) * sizeof(float)));
 	}
 	d_ibuf = p->input->d_buf;
@@ -231,7 +243,7 @@ void readFileExperimentalDebug(const char *iname, const char *rname,
 	p->reverb->buf = rbuf;
 	/*Create Streams*/
 	for(int i = 0; i < (int) (sizeof(streams)/sizeof(cudaStream_t)); i++){
-	 	checkCudaErrors(cudaStreamCreate(&streams[i]));
+		checkCudaErrors(cudaStreamCreate(&streams[i]));
 	}
 
 	
