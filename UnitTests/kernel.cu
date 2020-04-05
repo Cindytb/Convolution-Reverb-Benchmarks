@@ -87,7 +87,7 @@ int thrustOpsTest(char *filename) {
 
 	status = true;
 	for (int i = 0; i < size; i++) {
-		if (fabs(a[i]) > 0.0000001) {
+		if (fabs(a[i]) > std::numeric_limits<float>::epsilon()) {
 			status = false;
 			break;
 		}
