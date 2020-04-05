@@ -29,5 +29,7 @@ Sequential/bin/seqConvolve.out
 Sequential/libseqconvolve.a
 GPU/x64/*
 Sequential/x64/*
+UnitTests/x64/*
 GPU/out.wav
 Sequential/out.wav
+*.wav
